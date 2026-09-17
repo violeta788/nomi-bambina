@@ -8,14 +8,14 @@ import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles,
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match
   const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState<'mom' | 'dad' | 'guest'>('guest');
+  const [userRole, setUserRole] = useState<'mom' | 'dad' | 'relative' | 'friend'>('relative');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentInput, setCurrentInput] = useState('');
   const [names, setNames] = useState<any[]>([]);
   const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [coupleMatches, setCoupleMatches] = useState<any[]>([]);
-  const [expandedNameId, setExpandedNameId] = useState<string | null>(null); // Per espandere chi ha votato
+  const [expandedNameId, setExpandedNameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -81,7 +81,7 @@ export default function Home() {
           id: n.id,
           text: n.name_text,
           likes: nameLikes.length,
-          voters: voters, // Lista di chi ha messo Like
+          voters: voters,
         };
       });
 
@@ -188,7 +188,7 @@ export default function Home() {
     setCurrentUser(null);
     setNames([]);
     setUserName('');
-    setUserRole('guest');
+    setUserRole('relative');
     setPhase(1);
     setErrorMessage('');
   };
@@ -291,10 +291,20 @@ export default function Home() {
     setExpandedNameId(expandedNameId === id ? null : id);
   };
 
+  // Helper per mostrare il badge del ruolo
   const getRoleBadge = (role: string) => {
-    if (role === 'mom') return '👩 Mamma';
-    if (role === 'dad') return '👨 Papà';
-    return '👶 Parente/Amico';
+    switch (role) {
+      case 'mom':
+        return '👩 Mamma';
+      case 'dad':
+        return '👨 Papà';
+      case 'relative':
+        return '👵 Parente';
+      case 'friend':
+        return '🏼 Amico/a';
+      default:
+        return '👤 Utente';
+    }
   };
 
   return (
@@ -385,7 +395,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* SCHERMATA LOGIN CON RUOLO */}
+          {/* SCHERMATA LOGIN CON RUOLO DISTINTO */}
           {!currentUser && (
               <form onSubmit={handleLogin} className="space-y-4 my-auto">
                 <div>
@@ -404,11 +414,11 @@ export default function Home() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Chi sei per la bimba?
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                         type="button"
                         onClick={() => setUserRole('mom')}
-                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
+                        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
                             userRole === 'mom'
                                 ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
@@ -419,7 +429,7 @@ export default function Home() {
                     <button
                         type="button"
                         onClick={() => setUserRole('dad')}
-                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
+                        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
                             userRole === 'dad'
                                 ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
@@ -429,14 +439,25 @@ export default function Home() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setUserRole('guest')}
-                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
-                            userRole === 'guest'
+                        onClick={() => setUserRole('relative')}
+                        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
+                            userRole === 'relative'
                                 ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                         }`}
                     >
-                      <span className="text-base">👶</span> Parente/Amico
+                      <span className="text-base">👵</span> Parente
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setUserRole('friend')}
+                        className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
+                            userRole === 'friend'
+                                ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                      <span className="text-base">🏼</span> Amico/a
                     </button>
                   </div>
                 </div>
@@ -559,7 +580,7 @@ export default function Home() {
               </div>
           )}
 
-          {/* FASE 3: CLASSIFICA CON DETTAGLIO VOTI */}
+          {/* FASE 3: CLASSIFICA CON DETTAGLIO VOTI E NUOVI RUOLI */}
           {currentUser && phase === 3 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
                 <h3 className="text-center font-bold text-gray-700 text-sm mb-1 flex items-center justify-center gap-1.5">
@@ -606,7 +627,7 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              {/* DETTAGLIO CHI HA VOTATO */}
+                              {/* DETTAGLIO VOTANTI */}
                               {isExpanded && (
                                   <div className="mt-2.5 pt-2 border-t border-gray-200/60 text-xs animate-fade-in">
                                     <p className="text-[11px] font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
@@ -621,7 +642,7 @@ export default function Home() {
                                               >
                                   <span>{voter.name}</span>
                                   <span className="text-[10px] text-gray-400">
-                                    ({voter.role === 'mom' ? '👩 Mamma' : voter.role === 'dad' ? '👨 Papà' : '🏼 Parente'})
+                                    ({getRoleBadge(voter.role)})
                                   </span>
                                 </span>
                                           ))}
