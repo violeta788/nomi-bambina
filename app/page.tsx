@@ -3,21 +3,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, AlertCircle } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, AlertCircle, HeartHandshake as MatchIcon, Users } from 'lucide-react';
 
 export default function Home() {
-  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica
+  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState<'mom' | 'dad' | 'guest'>('guest');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentInput, setCurrentInput] = useState('');
   const [names, setNames] = useState<any[]>([]);
   const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [coupleMatches, setCoupleMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [matchPopup, setMatchPopup] = useState<string | null>(null);
 
-  // Caricamento utente salvato in locale
+  // Caricamento utente salvato
   useEffect(() => {
     const savedUser = localStorage.getItem('nomi_bambina_user');
     if (savedUser) {
@@ -38,7 +41,7 @@ export default function Home() {
     if (data) setNames(data);
   };
 
-  // Carica i nomi da votare per lo Swipe (Fase 2)
+  // Carica i nomi per lo Swipe (Fase 2)
   const fetchAllNamesForVoting = async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -49,7 +52,6 @@ export default function Home() {
         .eq('user_id', currentUser.id);
 
     const votedNameIds = myVotes ? myVotes.map((v) => v.name_id) : [];
-
     const { data: allNames } = await supabase.from('names').select('*');
 
     if (allNames) {
@@ -60,10 +62,9 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Carica i dati per la Classifica (Fase 3)
+  // Carica Classifica (Fase 3)
   const fetchLeaderboard = async () => {
     setLoading(true);
-
     const { data: allNames } = await supabase.from('names').select('*');
     const { data: allVotes } = await supabase.from('votes').select('*').eq('is_liked', true);
 
@@ -79,21 +80,58 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Carica i Match di Coppia (Fase 4)
+  const fetchCoupleMatches = async () => {
+    setLoading(true);
+
+    // Recupera Mamma e Papà
+    const { data: parents } = await supabase
+        .from('users')
+        .select('*')
+        .in('role', ['mom', 'dad']);
+
+    const mom = parents?.find((p) => p.role === 'mom');
+    const dad = parents?.find((p) => p.role === 'dad');
+
+    if (mom && dad) {
+      const { data: momVotes } = await supabase.from('votes').select('name_id').eq('user_id', mom.id).eq('is_liked', true);
+      const { data: dadVotes } = await supabase.from('votes').select('name_id').eq('user_id', dad.id).eq('is_liked', true);
+
+      const momLikedIds = momVotes ? momVotes.map((v) => v.name_id) : [];
+      const dadLikedIds = dadVotes ? dadVotes.map((v) => v.name_id) : [];
+
+      const matchedIds = momLikedIds.filter((id) => dadLikedIds.includes(id));
+
+      if (matchedIds.length > 0) {
+        const { data: matchedNames } = await supabase.from('names').select('*').in('id', matchedIds);
+        setCoupleMatches(matchedNames || []);
+      } else {
+        setCoupleMatches([]);
+      }
+    } else {
+      setCoupleMatches([]);
+    }
+    setLoading(false);
+  };
+
   // Cambio Fase
   const handleSwitchPhase = (newPhase: any) => {
     setPhase(newPhase);
     setErrorMessage('');
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
+    if (newPhase === 4) fetchCoupleMatches();
   };
 
-  // Login o Registrazione automatica per nome
+  // Login / Registrazione
   const handleLogin = async (e: any) => {
     e.preventDefault();
     const cleanName = userName.trim();
     if (!cleanName) return;
     setLoading(true);
+    setErrorMessage('');
 
+    // Verifica se esiste l'utente
     const { data: existingUser } = await supabase
         .from('users')
         .select('*')
@@ -105,9 +143,24 @@ export default function Home() {
       localStorage.setItem('nomi_bambina_user', JSON.stringify(existingUser));
       fetchUserNames(existingUser.id);
     } else {
+      // Se sceglie Mamma/Papà, verifica che non ce ne sia già uno registrato
+      if (userRole === 'mom' || userRole === 'dad') {
+        const { data: roleCheck } = await supabase
+            .from('users')
+            .select('*')
+            .eq('role', userRole)
+            .maybeSingle();
+
+        if (roleCheck) {
+          setErrorMessage(`Un account per la ${userRole === 'mom' ? 'Mamma' : 'Papà'} (${roleCheck.name}) esiste già!`);
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data: newUser, error } = await supabase
           .from('users')
-          .insert([{ name: cleanName }])
+          .insert([{ name: cleanName, role: userRole }])
           .select()
           .single();
 
@@ -126,11 +179,12 @@ export default function Home() {
     setCurrentUser(null);
     setNames([]);
     setUserName('');
+    setUserRole('guest');
     setPhase(1);
     setErrorMessage('');
   };
 
-  // Inserimento nome con controllo duplicati
+  // Inserimento nome
   const handleAddName = async (e: any) => {
     e.preventDefault();
     const cleanName = currentInput.trim();
@@ -139,13 +193,12 @@ export default function Home() {
     if (!cleanName || !currentUser) return;
 
     if (names.length >= 10) {
-      setErrorMessage('Hai già inserito il massimo di 10 nomi!');
+      setErrorMessage('Hai raggiunto il massimo di 10 nomi!');
       return;
     }
 
     setLoading(true);
 
-    // Controllo se il nome è già presente nel database (case-insensitive)
     const { data: existingName } = await supabase
         .from('names')
         .select('name_text')
@@ -153,12 +206,11 @@ export default function Home() {
         .maybeSingle();
 
     if (existingName) {
-      setErrorMessage(`Il nome "${cleanName}" è già stato inserito! Prova con un altro.`);
+      setErrorMessage(`Il nome "${cleanName}" è già presente!`);
       setLoading(false);
       return;
     }
 
-    // Se non esiste, lo inserisce
     const { data, error } = await supabase
         .from('names')
         .insert([{ user_id: currentUser.id, name_text: cleanName }])
@@ -183,7 +235,7 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Swipe Tinder
+  // Swipe Tinder con rilevamento Match
   const handleSwiped = async (direction: any, nameItem: any) => {
     const isLiked = direction === 'right';
 
@@ -197,13 +249,56 @@ export default function Home() {
       },
     ]);
 
+    // Controlla se è un Match tra Mamma e Papà
+    if (isLiked && (currentUser.role === 'mom' || currentUser.role === 'dad')) {
+      const otherRole = currentUser.role === 'mom' ? 'dad' : 'mom';
+
+      const { data: otherParent } = await supabase
+          .from('users')
+          .select('id')
+          .eq('role', otherRole)
+          .maybeSingle();
+
+      if (otherParent) {
+        const { data: otherVote } = await supabase
+            .from('votes')
+            .select('*')
+            .eq('user_id', otherParent.id)
+            .eq('name_id', nameItem.id)
+            .eq('is_liked', true)
+            .maybeSingle();
+
+        if (otherVote) {
+          setMatchPopup(nameItem.name_text);
+        }
+      }
+    }
+
     setAllNamesToVote((prev) => prev.filter((item) => item.id !== nameItem.id));
     setVotedCount((prev) => prev + 1);
   };
 
   return (
       <main className="min-h-screen bg-gradient-to-b from-pink-100 to-pink-50 flex flex-col items-center justify-center p-4 select-none">
-        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-pink-100 relative min-h-[520px] flex flex-col justify-between">
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-pink-100 relative min-h-[540px] flex flex-col justify-between">
+
+          {/* POPUP E UN MATCH! */}
+          {matchPopup && (
+              <div className="absolute inset-0 bg-pink-500/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
+                <Sparkles className="w-16 h-16 mb-2 text-yellow-300 animate-bounce" />
+                <h2 className="text-3xl font-extrabold mb-1">È UN MATCH! 💕</h2>
+                <p className="text-sm text-pink-100 mb-4">Sia la Mamma che il Papà amano questo nome:</p>
+                <div className="bg-white text-pink-600 px-6 py-3 rounded-2xl text-2xl font-black shadow-lg mb-6">
+                  {matchPopup}
+                </div>
+                <button
+                    onClick={() => setMatchPopup(null)}
+                    className="bg-yellow-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition"
+                >
+                  Fantastico! 🎉
+                </button>
+              </div>
+          )}
 
           {/* Intestazione */}
           <div>
@@ -215,13 +310,16 @@ export default function Home() {
 
               {currentUser && (
                   <div className="flex items-center justify-center gap-2 mt-1">
+                <span className="text-xs bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200 font-medium">
+                  {currentUser.role === 'mom' ? '👩 Mamma' : currentUser.role === 'dad' ? '👨 Papà' : '🏼 Parenti & Amici'}
+                </span>
                     <p className="text-xs text-gray-500">
-                      Ciao <span className="font-bold text-pink-600">{currentUser.name}</span>
+                      <span className="font-bold text-pink-600">{currentUser.name}</span>
                     </p>
                     <button
                         onClick={handleLogout}
                         title="Cambia Utente"
-                        className="text-gray-400 hover:text-red-500 transition p-1"
+                        className="text-gray-400 hover:text-red-500 transition p-1 ml-1"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                     </button>
@@ -231,10 +329,10 @@ export default function Home() {
 
             {/* Navigazione Fasi */}
             {currentUser && (
-                <div className="flex bg-pink-50 p-1 rounded-2xl mb-6 border border-pink-100">
+                <div className="grid grid-cols-4 bg-pink-50 p-1 rounded-2xl mb-6 border border-pink-100 text-center gap-1">
                   <button
                       onClick={() => handleSwitchPhase(1)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
                           phase === 1 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
                       }`}
                   >
@@ -242,49 +340,101 @@ export default function Home() {
                   </button>
                   <button
                       onClick={() => handleSwitchPhase(2)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 ${
+                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
                           phase === 2 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
                       }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> 2. Swipe
+                    2. Swipe
                   </button>
                   <button
                       onClick={() => handleSwitchPhase(3)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1 ${
+                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
                           phase === 3 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
                       }`}
                   >
-                    <Trophy className="w-3.5 h-3.5" /> 3. Classifica
+                    3. Tutti
+                  </button>
+                  <button
+                      onClick={() => handleSwitchPhase(4)}
+                      className={`py-2 text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-0.5 ${
+                          phase === 4 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
+                      }`}
+                  >
+                    <Heart className="w-3 h-3 fill-pink-500 text-pink-500" /> Match
                   </button>
                 </div>
             )}
           </div>
 
-          {/* SCHERMATA LOGIN / REGISTRAZIONE */}
+          {/* SCHERMATA LOGIN CON RUOLO */}
           {!currentUser && (
               <form onSubmit={handleLogin} className="space-y-4 my-auto">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Come ti chiami?
                   </label>
-                  <p className="text-xs text-gray-400 mb-2">
-                    Inserisci il tuo nome. Se hai già acceduto prima, verrai riconosciuto automaticamente!
-                  </p>
                   <input
                       type="text"
-                      placeholder="Es. Zio Marco"
+                      placeholder="Es. Marco"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
-                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800"
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800 mb-3"
                       required
                   />
+
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Chi sei per la bimba?
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setUserRole('mom')}
+                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
+                            userRole === 'mom'
+                                ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                      <span className="text-base">👩</span> Mamma
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setUserRole('dad')}
+                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
+                            userRole === 'dad'
+                                ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                      <span className="text-base">👨</span> Papà
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setUserRole('guest')}
+                        className={`py-2 px-1 text-xs font-semibold rounded-xl border transition flex flex-col items-center gap-1 ${
+                            userRole === 'guest'
+                                ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
+                                : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                        }`}
+                    >
+                      <span className="text-base">👶</span> Parente/Amico
+                    </button>
+                  </div>
                 </div>
+
+                {errorMessage && (
+                    <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>{errorMessage}</span>
+                    </div>
+                )}
+
                 <button
                     type="submit"
                     disabled={loading}
                     className="w-full bg-pink-500 text-white font-semibold py-2.5 rounded-xl hover:bg-pink-600 transition flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Verifica in corso...' : 'Entra o Registrati'} <ArrowRight className="w-4 h-4" />
+                  {loading ? 'Verifica...' : 'Entra o Registrati'} <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
           )}
@@ -314,9 +464,8 @@ export default function Home() {
                         </button>
                       </div>
 
-                      {/* Messaggio di Errore Duplicato */}
                       {errorMessage && (
-                          <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100 animate-fade-in">
+                          <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" />
                             <span>{errorMessage}</span>
                           </div>
@@ -356,7 +505,7 @@ export default function Home() {
           {currentUser && phase === 2 && (
               <div className="flex-1 flex flex-col items-center justify-center relative my-4">
                 {loading ? (
-                    <p className="text-gray-400 text-sm">Caricamento nomi...</p>
+                    <p className="text-gray-400 text-sm">Caricamento...</p>
                 ) : allNamesToVote.length > 0 ? (
                     <div className="relative w-full h-64 flex items-center justify-center">
                       {allNamesToVote.map((item) => (
@@ -384,18 +533,18 @@ export default function Home() {
                       <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                       <h3 className="font-bold text-gray-800">Hai votato tutti i nomi!</h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Vai al tab **3. Classifica** per vedere i risultati!
+                        Guarda i **Match Mamma & Papà** nel tab dedicato!
                       </p>
                     </div>
                 )}
               </div>
           )}
 
-          {/* FASE 3: CLASSIFICA */}
+          {/* FASE 3: CLASSIFICA GENERALE */}
           {currentUser && phase === 3 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
                 <h3 className="text-center font-bold text-gray-700 text-sm mb-2 flex items-center justify-center gap-1.5">
-                  <Award className="w-4 h-4 text-amber-500" /> Classifica Generale dei Nomi
+                  <Award className="w-4 h-4 text-amber-500" /> Classifica Tutti gli Utenti
                 </h3>
 
                 {loading ? (
@@ -407,32 +556,16 @@ export default function Home() {
                               key={item.id}
                               className={`flex items-center justify-between p-3 rounded-2xl border transition ${
                                   index === 0
-                                      ? 'bg-amber-50 border-amber-200 shadow-sm'
-                                      : index === 1
-                                          ? 'bg-slate-50 border-slate-200'
-                                          : index === 2
-                                              ? 'bg-amber-50/40 border-amber-100'
-                                              : 'bg-gray-50 border-gray-100'
+                                      ? 'bg-amber-50 border-amber-200'
+                                      : 'bg-gray-50 border-gray-100'
                               }`}
                           >
                             <div className="flex items-center gap-3">
-                      <span
-                          className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs ${
-                              index === 0
-                                  ? 'bg-amber-400 text-white'
-                                  : index === 1
-                                      ? 'bg-slate-300 text-white'
-                                      : index === 2
-                                          ? 'bg-amber-600/70 text-white'
-                                          : 'bg-gray-200 text-gray-600'
-                          }`}
-                      >
-                        {index + 1}
-                      </span>
+                              <span className="font-extrabold text-xs text-gray-500 w-5">{index + 1}.</span>
                               <span className="font-bold text-gray-800 text-sm">{item.text}</span>
                             </div>
 
-                            <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl shadow-xs border border-gray-100">
+                            <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-gray-100">
                               <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
                               <span className="text-xs font-bold text-gray-700">{item.likes}</span>
                             </div>
@@ -440,7 +573,45 @@ export default function Home() {
                       ))}
                     </ul>
                 ) : (
-                    <p className="text-center text-xs text-gray-400">Nessun nome ancora inserito.</p>
+                    <p className="text-center text-xs text-gray-400">Nessun nome inserito.</p>
+                )}
+              </div>
+          )}
+
+          {/* FASE 4: MATCH MAMMA & PAPÀ */}
+          {currentUser && phase === 4 && (
+              <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
+                <h3 className="text-center font-bold text-gray-800 text-sm mb-1 flex items-center justify-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-pink-500" /> Match Mamma & Papà 💕
+                </h3>
+                <p className="text-center text-xs text-gray-400 mb-3">
+                  Nomi approvati da entrambi i genitori
+                </p>
+
+                {loading ? (
+                    <p className="text-center text-gray-400 text-sm">Ricerca dei match...</p>
+                ) : coupleMatches.length > 0 ? (
+                    <ul className="space-y-2 max-h-64 overflow-y-auto">
+                      {coupleMatches.map((item) => (
+                          <li
+                              key={item.id}
+                              className="flex items-center justify-between p-3.5 bg-pink-50 rounded-2xl border border-pink-200 shadow-xs"
+                          >
+                            <span className="font-extrabold text-pink-700 text-base">{item.name_text}</span>
+                            <span className="text-xs bg-pink-500 text-white px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
+                      👩‍❤️‍👨 Intesa Perfetta
+                    </span>
+                          </li>
+                      ))}
+                    </ul>
+                ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-4">
+                      <Heart className="w-8 h-8 text-pink-300 mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-gray-600">Nessun Match di coppia ancora!</p>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Mamma e Papà devono registrarsi con i rispettivi ruoli ed effettuare lo Swipe!
+                      </p>
+                    </div>
                 )}
               </div>
           )}
@@ -450,8 +621,8 @@ export default function Home() {
             {phase === 2 && currentUser && (
                 <span>Voti completati: <strong className="text-pink-500">{votedCount}</strong></span>
             )}
-            {phase === 3 && (
-                <span>Aggiornata in tempo reale ❤️</span>
+            {(phase === 3 || phase === 4) && (
+                <span>Aggiornato in tempo reale ❤️</span>
             )}
           </div>
 
