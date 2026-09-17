@@ -3,20 +3,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, UserCheck } from 'lucide-react';
 
 export default function Home() {
-  const [phase, setPhase] = useState(1); // 1 = Inserimento, 2 = Swipe, 3 = Classifica
+  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica
   const [userName, setUserName] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentInput, setCurrentInput] = useState('');
-  const [names, setNames] = useState([]);
-  const [allNamesToVote, setAllNamesToVote] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [names, setNames] = useState<any[]>([]);
+  const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
+  const [loginMessage, setLoginMessage] = useState('');
 
-  // Caricamento utente da localStorage
+  // Caricamento utente salvato in locale al caricamento della pagina
   useEffect(() => {
     const savedUser = localStorage.getItem('nomi_bambina_user');
     if (savedUser) {
@@ -27,7 +28,7 @@ export default function Home() {
   }, []);
 
   // Recupera i nomi inseriti dall'utente corrente
-  const fetchUserNames = async (userId) => {
+  const fetchUserNames = async (userId: any) => {
     const { data } = await supabase
         .from('names')
         .select('*')
@@ -63,18 +64,15 @@ export default function Home() {
   const fetchLeaderboard = async () => {
     setLoading(true);
 
-    // Recupera tutti i nomi e tutti i voti positivi
     const { data: allNames } = await supabase.from('names').select('*');
     const { data: allVotes } = await supabase.from('votes').select('*').eq('is_liked', true);
 
     if (allNames) {
-      // Conta i "Mi Piace" per ogni nome
       const scores = allNames.map((n) => {
         const likes = allVotes ? allVotes.filter((v) => v.name_id === n.id).length : 0;
         return { id: n.id, text: n.name_text, likes };
       });
 
-      // Ordina dal più votato al meno votato
       scores.sort((a, b) => b.likes - a.likes);
       setLeaderboard(scores);
     }
@@ -82,34 +80,61 @@ export default function Home() {
   };
 
   // Cambio Fase
-  const handleSwitchPhase = (newPhase) => {
+  const handleSwitchPhase = (newPhase: any) => {
     setPhase(newPhase);
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
   };
 
-  // Login
-  const handleLogin = async (e) => {
+  // Login o Registrazione automatica per nome
+  const handleLogin = async (e: any) => {
     e.preventDefault();
-    if (!userName.trim()) return;
+    const cleanName = userName.trim();
+    if (!cleanName) return;
     setLoading(true);
+    setLoginMessage('');
 
-    const { data, error } = await supabase
+    // 1. Cerca se l'utente esiste già
+    const { data: existingUser } = await supabase
         .from('users')
-        .insert([{ name: userName.trim() }])
-        .select()
-        .single();
+        .select('*')
+        .ilike('name', cleanName)
+        .maybeSingle();
 
-    if (!error && data) {
-      setCurrentUser(data);
-      localStorage.setItem('nomi_bambina_user', JSON.stringify(data));
-      fetchUserNames(data.id);
+    if (existingUser) {
+      // Utente trovato! Effettua il login
+      setCurrentUser(existingUser);
+      localStorage.setItem('nomi_bambina_user', JSON.stringify(existingUser));
+      fetchUserNames(existingUser.id);
+      setLoginMessage('Bentornato!');
+    } else {
+      // 2. Se non esiste, crea un nuovo utente
+      const { data: newUser, error } = await supabase
+          .from('users')
+          .insert([{ name: cleanName }])
+          .select()
+          .single();
+
+      if (!error && newUser) {
+        setCurrentUser(newUser);
+        localStorage.setItem('nomi_bambina_user', JSON.stringify(newUser));
+        fetchUserNames(newUser.id);
+      }
     }
     setLoading(false);
   };
 
+  // Logout
+  const handleLogout = () => {
+    localStorage.removeItem('nomi_bambina_user');
+    setCurrentUser(null);
+    setNames([]);
+    setUserName('');
+    setPhase(1);
+  };
+
   // Inserimento nome
-  const handleAddName = async (e) => {
+  const handleAddName = async (e: any) => {
     e.preventDefault();
     const cleanName = currentInput.trim();
     if (cleanName && names.length < 10 && currentUser) {
@@ -129,7 +154,7 @@ export default function Home() {
   };
 
   // Cancellazione nome
-  const handleRemoveName = async (idToRemove) => {
+  const handleRemoveName = async (idToRemove: any) => {
     setLoading(true);
     const { error } = await supabase.from('names').delete().eq('id', idToRemove);
     if (!error) {
@@ -139,8 +164,10 @@ export default function Home() {
   };
 
   // Swipe Tinder
-  const handleSwiped = async (direction, nameItem) => {
+  const handleSwiped = async (direction: any, nameItem: any) => {
     const isLiked = direction === 'right';
+
+    if (!currentUser) return;
 
     await supabase.from('votes').insert([
       {
@@ -160,15 +187,25 @@ export default function Home() {
 
           {/* Intestazione */}
           <div>
-            <div className="text-center mb-4">
+            <div className="text-center mb-4 relative">
               <div className="bg-pink-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2">
                 <Heart className="w-6 h-6 text-pink-500 fill-pink-500" />
               </div>
               <h1 className="text-2xl font-bold text-gray-800">Scegliamo il Nome!</h1>
+
               {currentUser && (
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    Ciao <span className="font-semibold text-pink-600">{currentUser.name}</span>
-                  </p>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <p className="text-xs text-gray-500">
+                      Ciao <span className="font-bold text-pink-600">{currentUser.name}</span>
+                    </p>
+                    <button
+                        onClick={handleLogout}
+                        title="Cambia Utente"
+                        className="text-gray-400 hover:text-red-500 transition p-1"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
               )}
             </div>
 
@@ -203,13 +240,16 @@ export default function Home() {
             )}
           </div>
 
-          {/* SCHERMATA LOGIN */}
+          {/* SCHERMATA LOGIN / REGISTRAZIONE */}
           {!currentUser && (
               <form onSubmit={handleLogin} className="space-y-4 my-auto">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Come ti chiami?
                   </label>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Inserisci il tuo nome. Se hai già acceduto prima, verrai riconosciuto automaticamente!
+                  </p>
                   <input
                       type="text"
                       placeholder="Es. Zio Marco"
@@ -224,7 +264,7 @@ export default function Home() {
                     disabled={loading}
                     className="w-full bg-pink-500 text-white font-semibold py-2.5 rounded-xl hover:bg-pink-600 transition flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Caricamento...' : 'Inizia'} <ArrowRight className="w-4 h-4" />
+                  {loading ? 'Verifica in corso...' : 'Entra o Registrati'} <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
           )}
@@ -256,7 +296,7 @@ export default function Home() {
                 )}
 
                 <div className="flex justify-between items-center text-xs text-gray-500">
-                  <span>Nomi inseriti:</span>
+                  <span>I tuoi nomi inseriti:</span>
                   <span className="font-bold text-pink-600">{names.length} / 10</span>
                 </div>
 
