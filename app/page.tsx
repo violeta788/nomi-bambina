@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, AlertCircle, HeartHandshake as MatchIcon, Users } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match
@@ -15,6 +15,7 @@ export default function Home() {
   const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [coupleMatches, setCoupleMatches] = useState<any[]>([]);
+  const [expandedNameId, setExpandedNameId] = useState<string | null>(null); // Per espandere chi ha votato
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -62,16 +63,26 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Carica Classifica (Fase 3)
+  // Carica Classifica con lista dei votanti (Fase 3)
   const fetchLeaderboard = async () => {
     setLoading(true);
     const { data: allNames } = await supabase.from('names').select('*');
     const { data: allVotes } = await supabase.from('votes').select('*').eq('is_liked', true);
+    const { data: allUsers } = await supabase.from('users').select('*');
 
-    if (allNames) {
+    if (allNames && allVotes && allUsers) {
+      const usersMap = new Map(allUsers.map((u) => [u.id, u]));
+
       const scores = allNames.map((n) => {
-        const likes = allVotes ? allVotes.filter((v) => v.name_id === n.id).length : 0;
-        return { id: n.id, text: n.name_text, likes };
+        const nameLikes = allVotes.filter((v) => v.name_id === n.id);
+        const voters = nameLikes.map((v) => usersMap.get(v.user_id)).filter(Boolean);
+
+        return {
+          id: n.id,
+          text: n.name_text,
+          likes: nameLikes.length,
+          voters: voters, // Lista di chi ha messo Like
+        };
       });
 
       scores.sort((a, b) => b.likes - a.likes);
@@ -84,7 +95,6 @@ export default function Home() {
   const fetchCoupleMatches = async () => {
     setLoading(true);
 
-    // Recupera Mamma e Papà
     const { data: parents } = await supabase
         .from('users')
         .select('*')
@@ -118,6 +128,7 @@ export default function Home() {
   const handleSwitchPhase = (newPhase: any) => {
     setPhase(newPhase);
     setErrorMessage('');
+    setExpandedNameId(null);
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
     if (newPhase === 4) fetchCoupleMatches();
@@ -131,7 +142,6 @@ export default function Home() {
     setLoading(true);
     setErrorMessage('');
 
-    // Verifica se esiste l'utente
     const { data: existingUser } = await supabase
         .from('users')
         .select('*')
@@ -143,7 +153,6 @@ export default function Home() {
       localStorage.setItem('nomi_bambina_user', JSON.stringify(existingUser));
       fetchUserNames(existingUser.id);
     } else {
-      // Se sceglie Mamma/Papà, verifica che non ce ne sia già uno registrato
       if (userRole === 'mom' || userRole === 'dad') {
         const { data: roleCheck } = await supabase
             .from('users')
@@ -249,7 +258,6 @@ export default function Home() {
       },
     ]);
 
-    // Controlla se è un Match tra Mamma e Papà
     if (isLiked && (currentUser.role === 'mom' || currentUser.role === 'dad')) {
       const otherRole = currentUser.role === 'mom' ? 'dad' : 'mom';
 
@@ -278,11 +286,22 @@ export default function Home() {
     setVotedCount((prev) => prev + 1);
   };
 
+  // Gestione click per mostrare chi ha votato
+  const toggleExpand = (id: string) => {
+    setExpandedNameId(expandedNameId === id ? null : id);
+  };
+
+  const getRoleBadge = (role: string) => {
+    if (role === 'mom') return '👩 Mamma';
+    if (role === 'dad') return '👨 Papà';
+    return '👶 Parente/Amico';
+  };
+
   return (
       <main className="min-h-screen bg-gradient-to-b from-pink-100 to-pink-50 flex flex-col items-center justify-center p-4 select-none">
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-pink-100 relative min-h-[540px] flex flex-col justify-between">
 
-          {/* POPUP E UN MATCH! */}
+          {/* POPUP MATCH */}
           {matchPopup && (
               <div className="absolute inset-0 bg-pink-500/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
                 <Sparkles className="w-16 h-16 mb-2 text-yellow-300 animate-bounce" />
@@ -311,7 +330,7 @@ export default function Home() {
               {currentUser && (
                   <div className="flex items-center justify-center gap-2 mt-1">
                 <span className="text-xs bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200 font-medium">
-                  {currentUser.role === 'mom' ? '👩 Mamma' : currentUser.role === 'dad' ? '👨 Papà' : '🏼 Parenti & Amici'}
+                  {getRoleBadge(currentUser.role)}
                 </span>
                     <p className="text-xs text-gray-500">
                       <span className="font-bold text-pink-600">{currentUser.name}</span>
@@ -533,44 +552,88 @@ export default function Home() {
                       <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                       <h3 className="font-bold text-gray-800">Hai votato tutti i nomi!</h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Guarda i **Match Mamma & Papà** nel tab dedicato!
+                        Guarda la classifica o i Match per scoprire le preferenze!
                       </p>
                     </div>
                 )}
               </div>
           )}
 
-          {/* FASE 3: CLASSIFICA GENERALE */}
+          {/* FASE 3: CLASSIFICA CON DETTAGLIO VOTI */}
           {currentUser && phase === 3 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
-                <h3 className="text-center font-bold text-gray-700 text-sm mb-2 flex items-center justify-center gap-1.5">
-                  <Award className="w-4 h-4 text-amber-500" /> Classifica Tutti gli Utenti
+                <h3 className="text-center font-bold text-gray-700 text-sm mb-1 flex items-center justify-center gap-1.5">
+                  <Award className="w-4 h-4 text-amber-500" /> Classifica Generale
                 </h3>
+                <p className="text-center text-[11px] text-gray-400 mb-2">
+                  Clicca su un nome per vedere chi lo ha votato! 👆
+                </p>
 
                 {loading ? (
                     <p className="text-center text-gray-400 text-sm">Calcolo classifica...</p>
                 ) : leaderboard.length > 0 ? (
                     <ul className="space-y-2 max-h-64 overflow-y-auto">
-                      {leaderboard.map((item, index) => (
-                          <li
-                              key={item.id}
-                              className={`flex items-center justify-between p-3 rounded-2xl border transition ${
-                                  index === 0
-                                      ? 'bg-amber-50 border-amber-200'
-                                      : 'bg-gray-50 border-gray-100'
-                              }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="font-extrabold text-xs text-gray-500 w-5">{index + 1}.</span>
-                              <span className="font-bold text-gray-800 text-sm">{item.text}</span>
-                            </div>
+                      {leaderboard.map((item, index) => {
+                        const isExpanded = expandedNameId === item.id;
+                        return (
+                            <li
+                                key={item.id}
+                                onClick={() => toggleExpand(item.id)}
+                                className={`p-3 rounded-2xl border transition cursor-pointer ${
+                                    index === 0
+                                        ? 'bg-amber-50 border-amber-200'
+                                        : 'bg-gray-50 border-gray-100 hover:bg-gray-100/80'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-xs text-gray-400 w-4">
+                            {index + 1}.
+                          </span>
+                                  <span className="font-bold text-gray-800 text-sm">{item.text}</span>
+                                </div>
 
-                            <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-gray-100">
-                              <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
-                              <span className="text-xs font-bold text-gray-700">{item.likes}</span>
-                            </div>
-                          </li>
-                      ))}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-gray-100 shadow-xs">
+                                    <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
+                                    <span className="text-xs font-bold text-gray-700">{item.likes}</span>
+                                  </div>
+                                  {isExpanded ? (
+                                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                                  ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* DETTAGLIO CHI HA VOTATO */}
+                              {isExpanded && (
+                                  <div className="mt-2.5 pt-2 border-t border-gray-200/60 text-xs animate-fade-in">
+                                    <p className="text-[11px] font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
+                                      <Users className="w-3 h-3 text-pink-500" /> Piace a:
+                                    </p>
+                                    {item.voters.length > 0 ? (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {item.voters.map((voter: any) => (
+                                              <span
+                                                  key={voter.id}
+                                                  className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-200 text-gray-700 font-medium text-[11px]"
+                                              >
+                                  <span>{voter.name}</span>
+                                  <span className="text-[10px] text-gray-400">
+                                    ({voter.role === 'mom' ? '👩 Mamma' : voter.role === 'dad' ? '👨 Papà' : '🏼 Parente'})
+                                  </span>
+                                </span>
+                                          ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-400 text-[11px] italic">Nessun voto ricevuto finora.</p>
+                                    )}
+                                  </div>
+                              )}
+                            </li>
+                        );
+                      })}
                     </ul>
                 ) : (
                     <p className="text-center text-xs text-gray-400">Nessun nome inserito.</p>
