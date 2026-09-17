@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, UserCheck } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Trophy, Award, LogOut, AlertCircle } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica
@@ -15,9 +15,9 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
-  const [loginMessage, setLoginMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Caricamento utente salvato in locale al caricamento della pagina
+  // Caricamento utente salvato in locale
   useEffect(() => {
     const savedUser = localStorage.getItem('nomi_bambina_user');
     if (savedUser) {
@@ -82,6 +82,7 @@ export default function Home() {
   // Cambio Fase
   const handleSwitchPhase = (newPhase: any) => {
     setPhase(newPhase);
+    setErrorMessage('');
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
   };
@@ -92,9 +93,7 @@ export default function Home() {
     const cleanName = userName.trim();
     if (!cleanName) return;
     setLoading(true);
-    setLoginMessage('');
 
-    // 1. Cerca se l'utente esiste già
     const { data: existingUser } = await supabase
         .from('users')
         .select('*')
@@ -102,13 +101,10 @@ export default function Home() {
         .maybeSingle();
 
     if (existingUser) {
-      // Utente trovato! Effettua il login
       setCurrentUser(existingUser);
       localStorage.setItem('nomi_bambina_user', JSON.stringify(existingUser));
       fetchUserNames(existingUser.id);
-      setLoginMessage('Bentornato!');
     } else {
-      // 2. Se non esiste, crea un nuovo utente
       const { data: newUser, error } = await supabase
           .from('users')
           .insert([{ name: cleanName }])
@@ -131,31 +127,55 @@ export default function Home() {
     setNames([]);
     setUserName('');
     setPhase(1);
+    setErrorMessage('');
   };
 
-  // Inserimento nome
+  // Inserimento nome con controllo duplicati
   const handleAddName = async (e: any) => {
     e.preventDefault();
     const cleanName = currentInput.trim();
-    if (cleanName && names.length < 10 && currentUser) {
-      setLoading(true);
-      const { data } = await supabase
-          .from('names')
-          .insert([{ user_id: currentUser.id, name_text: cleanName }])
-          .select()
-          .single();
+    setErrorMessage('');
 
-      if (data) {
-        setNames([...names, data]);
-        setCurrentInput('');
-      }
-      setLoading(false);
+    if (!cleanName || !currentUser) return;
+
+    if (names.length >= 10) {
+      setErrorMessage('Hai già inserito il massimo di 10 nomi!');
+      return;
     }
+
+    setLoading(true);
+
+    // Controllo se il nome è già presente nel database (case-insensitive)
+    const { data: existingName } = await supabase
+        .from('names')
+        .select('name_text')
+        .ilike('name_text', cleanName)
+        .maybeSingle();
+
+    if (existingName) {
+      setErrorMessage(`Il nome "${cleanName}" è già stato inserito! Prova con un altro.`);
+      setLoading(false);
+      return;
+    }
+
+    // Se non esiste, lo inserisce
+    const { data, error } = await supabase
+        .from('names')
+        .insert([{ user_id: currentUser.id, name_text: cleanName }])
+        .select()
+        .single();
+
+    if (data && !error) {
+      setNames([...names, data]);
+      setCurrentInput('');
+    }
+    setLoading(false);
   };
 
   // Cancellazione nome
   const handleRemoveName = async (idToRemove: any) => {
     setLoading(true);
+    setErrorMessage('');
     const { error } = await supabase.from('names').delete().eq('id', idToRemove);
     if (!error) {
       setNames(names.filter((n) => n.id !== idToRemove));
@@ -273,21 +293,34 @@ export default function Home() {
           {currentUser && phase === 1 && (
               <div className="space-y-4 my-auto">
                 {names.length < 10 ? (
-                    <form onSubmit={handleAddName} className="flex gap-2">
-                      <input
-                          type="text"
-                          placeholder="Scrivi un nome..."
-                          value={currentInput}
-                          onChange={(e) => setCurrentInput(e.target.value)}
-                          className="flex-1 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800"
-                      />
-                      <button
-                          type="submit"
-                          disabled={!currentInput.trim() || loading}
-                          className="bg-pink-500 text-white p-2.5 rounded-xl hover:bg-pink-600 disabled:opacity-50"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
+                    <form onSubmit={handleAddName} className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Scrivi un nome..."
+                            value={currentInput}
+                            onChange={(e) => {
+                              setCurrentInput(e.target.value);
+                              if (errorMessage) setErrorMessage('');
+                            }}
+                            className="flex-1 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800"
+                        />
+                        <button
+                            type="submit"
+                            disabled={!currentInput.trim() || loading}
+                            className="bg-pink-500 text-white p-2.5 rounded-xl hover:bg-pink-600 disabled:opacity-50"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Messaggio di Errore Duplicato */}
+                      {errorMessage && (
+                          <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100 animate-fade-in">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span>{errorMessage}</span>
+                          </div>
+                      )}
                     </form>
                 ) : (
                     <p className="text-center text-sm font-semibold text-green-600 bg-green-50 p-2 rounded-xl">
