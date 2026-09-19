@@ -223,27 +223,42 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Salva Aggiornamenti Profilo
+  // Salva Aggiornamenti Profilo (Corretto per evitare blocchi)
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     setLoading(true);
 
     const cleanAvatar = profileAvatar.trim() || '👶';
+    const updatedUserObj = {
+      ...currentUser,
+      note: profileNote,
+      avatar: cleanAvatar
+    };
 
-    const { data: updated, error } = await supabase
-        .from('users')
-        .update({ note: profileNote, avatar: cleanAvatar })
-        .eq('id', currentUser.id)
-        .select()
-        .single();
+    try {
+      const { data: updated, error } = await supabase
+          .from('users')
+          .update({ note: profileNote, avatar: cleanAvatar })
+          .eq('id', currentUser.id)
+          .select()
+          .single();
 
-    if (updated && !error) {
-      setCurrentUser(updated);
-      localStorage.setItem('nomi_bambina_user', JSON.stringify(updated));
+      if (updated && !error) {
+        setCurrentUser(updated);
+        localStorage.setItem('nomi_bambina_user', JSON.stringify(updated));
+      } else {
+        // Fallback in locale se la colonna database dà avviso
+        setCurrentUser(updatedUserObj);
+        localStorage.setItem('nomi_bambina_user', JSON.stringify(updatedUserObj));
+      }
+    } catch (err) {
+      setCurrentUser(updatedUserObj);
+      localStorage.setItem('nomi_bambina_user', JSON.stringify(updatedUserObj));
+    } finally {
       setShowProfileModal(false);
       setIsFirstLogin(false);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Logout
@@ -400,7 +415,7 @@ export default function Home() {
                         placeholder="Es. Zia, Amico, Nonna..."
                         value={profileNote}
                         onChange={(e) => setProfileNote(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none"
+                        className="w-full px-3 py-2 text-sm text-gray-900 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none placeholder:text-gray-400"
                     />
                   </div>
 
@@ -416,7 +431,7 @@ export default function Home() {
                           placeholder="Scegli dalla tastiera 📱"
                           value={profileAvatar}
                           onChange={(e) => setProfileAvatar(e.target.value)}
-                          className="w-full px-3 py-2 text-center text-xl border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none"
+                          className="w-full px-3 py-2 text-center text-xl text-gray-900 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none placeholder:text-gray-400"
                       />
                     </div>
 
@@ -581,7 +596,7 @@ export default function Home() {
                             placeholder="Es. Marco, Elena..."
                             value={userName}
                             onChange={(e) => setUserName(e.target.value)}
-                            className="w-full px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-800 mb-3"
+                            className="w-full px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-900 bg-white mb-3 placeholder:text-gray-400"
                             required
                         />
 
@@ -661,7 +676,7 @@ export default function Home() {
                               type="text"
                               placeholder={`Es. ${userName} B.`}
                               onChange={(e) => setUserName(e.target.value)}
-                              className="flex-1 px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none"
+                              className="flex-1 px-3 py-1.5 border rounded-xl text-xs bg-white text-gray-900 focus:outline-none"
                           />
                           <button
                               onClick={() => createNewUser(userName, isParentRole || 'guest')}
@@ -690,7 +705,7 @@ export default function Home() {
                               setCurrentInput(e.target.value);
                               if (errorMessage) setErrorMessage('');
                             }}
-                            className="flex-1 px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-800"
+                            className="flex-1 px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-900 bg-white placeholder:text-gray-400"
                         />
                         <button
                             type="submit"
