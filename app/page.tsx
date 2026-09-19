@@ -449,7 +449,7 @@ export default function Home() {
 
   // SWIPE TINDER CON MATCH DI GRUPPO
   const handleSwiped = async (direction: any, nameItem: any) => {
-    const isLiked = direction === 'right';
+    const isLiked = direction === 'left';
     if (!currentUser) return;
 
     const { data: insertedVote, error } = await supabase.from('votes').insert([
@@ -1117,7 +1117,7 @@ export default function Home() {
                                 title="Rimuovi voto"
                                 className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
                             >
-                              Annula
+                              Annulla
                             </button>
                           </li>
                       ))}
