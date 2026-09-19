@@ -203,19 +203,21 @@ export default function Home() {
     if (newPhase === 4) fetchCoupleMatches();
   };
 
-  // Funzione di ricerca nel database locale (case-insensitive)
+  // Logica Ibrida: Database Locale + Fallback Intelligente
   const getSmartNameDetails = (nameText: string) => {
     if (!nameText) return { meaning: "Un nome speciale pieno di dolcezza.", onomastico: "1 Novembre (Ognissanti)" };
 
     const clean = nameText.trim().toLowerCase();
 
+    // 1. Controllo nel database locale ad alte prestazioni
     if (namesDatabase[clean]) {
       return namesDatabase[clean];
     }
 
-    // Fallback elegante per nomi non presenti nel dizionario
+    // 2. Fallback intelligente per nomi fuori catalogo o inventati
+    const firstLetter = nameText.charAt(0).toUpperCase();
     return {
-      meaning: `Un nome unico, affascinante e originale scelto appositamente per questa splendida avventura.`,
+      meaning: `Un nome unico ed esclusivo che inizia con la lettera ${firstLetter}, scelto appositamente per questa splendida avventura.`,
       onomastico: "1 Novembre (Ognissanti)"
     };
   };

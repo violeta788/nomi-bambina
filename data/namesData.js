@@ -42,11 +42,11 @@ export const namesDatabase = {
         onomastico: "18 Agosto (Sant'Elena Imperatrice)"
     },
     camilla: {
-        meaning: "Di origine latina, indicava nell'antica Roma la fanciulla nobile che aiutava nei sacrifici. Significa 'ministra degli dèi' o 'giovane di nobile stirpe'.",
+        meaning: "Di origine latina, indicava nell'antica Roma la fanciulla nobile che aiutava nei sacrifici. Significa 'ministra degli dèi'.",
         onomastico: "14 Luglio (Santa Camilla)"
     },
     ginevra: {
-        meaning: "Di origine celtica o gaelica, legato alle leggende arturiane (Ginevra, sposa di Artù). Significa 'spirito bianco' o 'onda splendente'.",
+        meaning: "Di origine celtica o gaelica, legato alle leggende arturiane. Significa 'spirito bianco' o 'onda splendente'.",
         onomastico: "1 Novembre (Ognissanti)"
     },
     ludovica: {
@@ -64,5 +64,41 @@ export const namesDatabase = {
     chiara: {
         meaning: "Dal latino clarus, significa 'luminosa', 'chiara', 'illustre'. Famosa per Santa Chiara d'Assisi.",
         onomastico: "11 Agosto (Santa Chiara)"
+    },
+    giorgia: {
+        meaning: "Dal greco Georgos, 'lavoratore della terra'.",
+        onomastico: "23 Aprile (San Giorgio)"
+    },
+    sara: {
+        meaning: "Di origine ebraica, significa 'principessa', 'signora'. Nome biblico di grande tradizione.",
+        onomastico: "9 Ottobre (Santa Sara)"
+    },
+    anna: {
+        meaning: "Dall'ebraico Channah, significa 'grazia', 'favore', 'misericordia'.",
+        onomastico: "26 Luglio (Santi Anna e Gioacchino)"
+    },
+    valentina: {
+        meaning: "Dal latino valens, significa 'forte', 'sana', 'piena di vigore'.",
+        onomastico: "14 Febbraio (San Valentino)"
+    },
+    caterina: {
+        meaning: "Dal greco katharòs, significa 'pura', 'incontaminata'.",
+        onomastico: "25 Novembre (Santa Caterina d'Alessandria)"
+    },
+    vittoria: {
+        meaning: "Dal latino victoria, significa letteralmente 'vittoria', 'trionfo'.",
+        onomastico: "23 Dicembre (Santa Vittoria)"
+    },
+    giorgia: {
+        meaning: "Dal greco antico 'agricoltrice'.",
+        onomastico: "23 Aprile"
+    },
+    irene: {
+        meaning: "Dal greco Eirene, dea della pace. Significa 'pace', 'serenità'.",
+        onomastico: "5 Aprile (Sant'Irene)"
+    },
+    claudia: {
+        meaning: "Di origine latina, legato alla celebre gens Claudia. Significa 'nobile'.",
+        onomastico: "18 Maggio (Santa Claudia)"
     }
 };
