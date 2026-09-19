@@ -1117,7 +1117,7 @@ export default function Home() {
                                 title="Rimuovi voto"
                                 className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
                             >
-                              Elimina
+                              Annula
                             </button>
                           </li>
                       ))}
