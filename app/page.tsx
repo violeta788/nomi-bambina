@@ -14,6 +14,9 @@ export default function Home() {
   const [isParentRole, setIsParentRole] = useState<'mom' | 'dad' | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // Preferenza Inversione Swipe per singolo dispositivo
+  const [invertSwipe, setInvertSwipe] = useState(false);
+
   // Gestione Omonimia
   const [existingUserFound, setExistingUserFound] = useState<any>(null);
 
@@ -45,8 +48,13 @@ export default function Home() {
 
   const quickAvatarSuggestions = ['👶', '👩', '👨', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
 
-  // Caricamento utente salvato
+  // Caricamento utente salvato e preferenza swipe
   useEffect(() => {
+    const savedInvert = localStorage.getItem('nomi_bambina_invert_swipe');
+    if (savedInvert) {
+      setInvertSwipe(JSON.parse(savedInvert));
+    }
+
     const savedUser = localStorage.getItem('nomi_bambina_user');
     if (savedUser) {
       const parsed = JSON.parse(savedUser);
@@ -56,6 +64,11 @@ export default function Home() {
       fetchUserNames(parsed.id);
     }
   }, []);
+
+  const handleToggleInvert = (value: boolean) => {
+    setInvertSwipe(value);
+    localStorage.setItem('nomi_bambina_invert_swipe', JSON.stringify(value));
+  };
 
   // Recupera i nomi inseriti dall'utente corrente
   const fetchUserNames = async (userId: any) => {
@@ -447,9 +460,9 @@ export default function Home() {
     setLoading(false);
   };
 
-  // SWIPE TINDER CON MATCH DI GRUPPO
+  // SWIPE TINDER CON SUPPORTO ALL'INVERSIONE DEL DISPOSITIVO
   const handleSwiped = async (direction: any, nameItem: any) => {
-    const isLiked = direction === 'right';
+    const isLiked = invertSwipe ? direction === 'left' : direction === 'right';
     if (!currentUser) return;
 
     const { data: insertedVote, error } = await supabase.from('votes').insert([
@@ -592,7 +605,7 @@ export default function Home() {
           {/* MODALE POPUP PROFILO */}
           {showProfileModal && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in">
+                <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in max-h-[90%] overflow-y-auto">
                   <button
                       onClick={() => {
                         setShowProfileModal(false);
@@ -650,10 +663,28 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* OPZIONE INVERSIONE SWIPE PER DISPOSITIVO */}
+                  <div className="pt-3 border-t border-purple-100 flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block">
+                        Inverti Swipe per questo telefono
+                      </label>
+                      <p className="text-[10px] text-gray-400">
+                        Attivalo se i comandi risultano specchiati
+                      </p>
+                    </div>
+                    <input
+                        type="checkbox"
+                        checked={invertSwipe}
+                        onChange={(e) => handleToggleInvert(e.target.checked)}
+                        className="w-5 h-5 text-purple-600 rounded accent-purple-600 cursor-pointer"
+                    />
+                  </div>
+
                   <button
                       onClick={handleSaveProfile}
                       disabled={loading}
-                      className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm"
+                      className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm mt-2"
                   >
                     {loading ? 'Salvataggio...' : 'Salva e Continua'}
                   </button>
@@ -942,9 +973,20 @@ export default function Home() {
                               <h2 className="text-3xl font-extrabold tracking-wide drop-shadow-md">
                                 {item.name_text}
                               </h2>
+
+                              {/* TESTI DINAMICI IN BASE ALL'INVERSIONE */}
                               <div className="flex gap-8 mt-6 text-xs text-purple-100 font-medium">
-                                <span>👈 Swipe Sinistra: No</span>
-                                <span>Swipe Destra: Sì 👉</span>
+                                {invertSwipe ? (
+                                    <>
+                                      <span>👈 Swipe Sinistra: Sì</span>
+                                      <span>Swipe Destra: No 👉</span>
+                                    </>
+                                ) : (
+                                    <>
+                                      <span>👈 Swipe Sinistra: No</span>
+                                      <span>Swipe Destra: Sì 👉</span>
+                                    </>
+                                )}
                               </div>
                             </div>
                           </TinderCard>
@@ -1117,7 +1159,7 @@ export default function Home() {
                                 title="Rimuovi voto"
                                 className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
                             >
-                              Annula
+                              Elimina
                             </button>
                           </li>
                       ))}
