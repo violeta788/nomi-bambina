@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, User, X, Settings } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3 } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match
@@ -16,6 +16,7 @@ export default function Home() {
 
   // Modal Profilo / Dettagli Facoltativi
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [profileNote, setProfileNote] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('👶');
 
@@ -156,7 +157,6 @@ export default function Home() {
     setErrorMessage('');
     setExistingUserFound(null);
 
-    // Cerca se esiste già un utente con questo nome
     const { data: existing } = await supabase
         .from('users')
         .select('*')
@@ -167,7 +167,6 @@ export default function Home() {
       setExistingUserFound(existing);
       setLoading(false);
     } else {
-      // Se non esiste, crea direttamente il nuovo profilo
       createNewUser(cleanName, isParentRole || 'guest');
     }
   };
@@ -184,7 +183,7 @@ export default function Home() {
     }
   };
 
-  // 3. Creazione Nuovo Utente (in caso di omonimia o nuovo utente)
+  // 3. Creazione Nuovo Utente (con apertura automatica pop-up di benvenuto)
   const createNewUser = async (nameToCreate: string, roleToSet: string) => {
     setLoading(true);
     if (roleToSet === 'mom' || roleToSet === 'dad') {
@@ -213,13 +212,19 @@ export default function Home() {
       localStorage.setItem('nomi_bambina_user', JSON.stringify(newUser));
       fetchUserNames(newUser.id);
       setExistingUserFound(null);
+
+      // IDEA 2: Se è un partecipante generico (non mamma/papà), mostriamo il benvenuto al primo accesso
+      if (roleToSet === 'guest') {
+        setIsFirstLogin(true);
+        setShowProfileModal(true);
+      }
     } else if (error) {
       setErrorMessage("Errore durante la registrazione. Riprova con un altro nome.");
     }
     setLoading(false);
   };
 
-  // Salva Aggiornamenti Profilo Facoltativi
+  // Salva Aggiornamenti Profilo
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -235,6 +240,7 @@ export default function Home() {
       setCurrentUser(updated);
       localStorage.setItem('nomi_bambina_user', JSON.stringify(updated));
       setShowProfileModal(false);
+      setIsFirstLogin(false);
     }
     setLoading(false);
   };
@@ -347,23 +353,26 @@ export default function Home() {
     setExpandedNameId(expandedNameId === id ? null : id);
   };
 
-  const getRoleBadge = (user: any) => {
+  const getRoleBadgeText = (user: any) => {
     if (!user) return '';
     if (user.role === 'mom') return '👩 Mamma';
     if (user.role === 'dad') return '👨 Papà';
-    return user.note ? `${user.avatar || '👶'} ${user.note}` : `${user.avatar || '👶'} Partecipante`;
+    return user.note ? `${user.avatar || '👶'} ${user.note}` : null;
   };
 
   return (
       <main className="min-h-screen bg-gradient-to-b from-pink-100 to-pink-50 flex flex-col items-center justify-center p-4 select-none">
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-pink-100 relative min-h-[540px] flex flex-col justify-between">
 
-          {/* MODALE POPUP PROFILO FACOLTATIVO */}
+          {/* MODALE POPUP PROFILO FACOLTATIVO (IDEA 2: BENAVENUTO AL PRIMO ACCESSO) */}
           {showProfileModal && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-pink-100 relative animate-fade-in">
                   <button
-                      onClick={() => setShowProfileModal(false)}
+                      onClick={() => {
+                        setShowProfileModal(false);
+                        setIsFirstLogin(false);
+                      }}
                       className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
                   >
                     <X className="w-5 h-5" />
@@ -371,8 +380,14 @@ export default function Home() {
 
                   <div className="text-center">
                     <div className="text-3xl mb-1">{profileAvatar}</div>
-                    <h3 className="font-bold text-gray-800 text-lg">Il tuo Profilo</h3>
-                    <p className="text-xs text-gray-400">Personalizza come ti vedono gli altri nella classifica!</p>
+                    <h3 className="font-bold text-gray-800 text-lg">
+                      {isFirstLogin ? `Benvenuto/a ${currentUser?.name}! 🎉` : 'Il tuo Profilo'}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {isFirstLogin
+                          ? 'Vuoi aggiungere chi sei per la bimba (es. Zia, Nonno, Amica) e scegliere la tua emoji?'
+                          : 'Personalizza come ti vedono gli altri nella classifica!'}
+                    </p>
                   </div>
 
                   <div>
@@ -381,7 +396,7 @@ export default function Home() {
                     </label>
                     <input
                         type="text"
-                        placeholder="Es. Zio preferito, Amica d'infanzia, Nonna..."
+                        placeholder="Es. Zia preferita, Amica d'infanzia, Nonna..."
                         value={profileNote}
                         onChange={(e) => setProfileNote(e.target.value)}
                         className="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none"
@@ -390,7 +405,7 @@ export default function Home() {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                      Scegli il tuo Avatar Emoji:
+                      Scegli la tua Emoji:
                     </label>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {avatarOptions.map((emoji) => (
@@ -410,13 +425,27 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <button
-                      onClick={handleSaveProfile}
-                      disabled={loading}
-                      className="w-full bg-pink-500 text-white font-bold py-2.5 rounded-xl hover:bg-pink-600 transition text-sm"
-                  >
-                    {loading ? 'Salvataggio...' : 'Salva Profilo'}
-                  </button>
+                  <div className="space-y-2 pt-1">
+                    <button
+                        onClick={handleSaveProfile}
+                        disabled={loading}
+                        className="w-full bg-pink-500 text-white font-bold py-2.5 rounded-xl hover:bg-pink-600 transition text-sm"
+                    >
+                      {loading ? 'Salvataggio...' : 'Salva e Continua'}
+                    </button>
+                    {isFirstLogin && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                              setShowProfileModal(false);
+                              setIsFirstLogin(false);
+                            }}
+                            className="w-full text-xs text-gray-400 hover:text-gray-600 py-1 transition"
+                        >
+                          Salta per ora
+                        </button>
+                    )}
+                  </div>
                 </div>
               </div>
           )}
@@ -448,26 +477,39 @@ export default function Home() {
               <h1 className="text-2xl font-bold text-gray-800">Scegliamo il Nome!</h1>
 
               {currentUser && (
-                  <div className="flex items-center justify-center gap-2 mt-1">
-                <span className="text-xs bg-pink-50 text-pink-700 px-2.5 py-0.5 rounded-full border border-pink-200 font-medium">
-                  {getRoleBadge(currentUser)}
-                </span>
-                    <p className="text-xs text-gray-500">
-                      <span className="font-bold text-pink-600">{currentUser.name}</span>
-                    </p>
+                  <div className="flex flex-col items-center justify-center gap-1.5 mt-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-gray-700">
+                        Ciao <span className="font-extrabold text-pink-600">{currentUser.name}</span>
+                      </p>
+                      <button
+                          onClick={handleLogout}
+                          title="Cambia Utente"
+                          className="text-gray-400 hover:text-red-500 transition p-1"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* IDEA 1: BADGE COLORATO E EVIDENTE PER PERSONALIZZARE IL PROFILO */}
                     <button
-                        onClick={() => setShowProfileModal(true)}
-                        title="Personalizza Profilo"
-                        className="text-gray-400 hover:text-pink-500 transition p-1"
+                        onClick={() => {
+                          setIsFirstLogin(false);
+                          setShowProfileModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs px-3 py-1 rounded-full border border-pink-200 transition font-medium shadow-2xs"
                     >
-                      <Settings className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        title="Cambia Utente"
-                        className="text-gray-400 hover:text-red-500 transition p-1"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
+                      {getRoleBadgeText(currentUser) ? (
+                          <>
+                            <span>{getRoleBadgeText(currentUser)}</span>
+                            <Edit3 className="w-3 h-3 text-pink-400 ml-0.5" />
+                          </>
+                      ) : (
+                          <>
+                            <Edit3 className="w-3.5 h-3.5 text-pink-500" />
+                            <span className="font-semibold text-pink-600">✏️ Aggiungi chi sei</span>
+                          </>
+                      )}
                     </button>
                   </div>
               )}
@@ -578,7 +620,7 @@ export default function Home() {
                       </button>
                     </form>
                 ) : (
-                    /* RISOLUZIONE OMONIMIA (SOLUZIONE 1) */
+                    /* RISOLUZIONE OMONIMIA */
                     <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3 animate-fade-in">
                       <div className="flex items-start gap-2 text-amber-800">
                         <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
@@ -784,7 +826,7 @@ export default function Home() {
                                               >
                                   <span>{voter.name}</span>
                                   <span className="text-[10px] text-gray-400">
-                                    ({getRoleBadge(voter)})
+                                    ({getRoleBadgeText(voter) || `${voter.avatar || '👶'} Partecipante`})
                                   </span>
                                 </span>
                                           ))}
