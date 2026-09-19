@@ -7,6 +7,7 @@ import TinderCard from 'react-tinder-card';
 import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
 
 export default function Home() {
+  const [lastVotedItem, setLastVotedItem] = useState<{ nameItem: any; voteId: string } | null>(null);
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
   const [userName, setUserName] = useState('');
   const [isParentRole, setIsParentRole] = useState<'mom' | 'dad' | null>(null);
@@ -410,15 +411,22 @@ export default function Home() {
     const isLiked = direction === 'right';
     if (!currentUser) return;
 
-    await supabase.from('votes').insert([
+    // Inseriamo il voto e ci facciamo restituire l'oggetto inserito (con il suo .id)
+    const { data: insertedVote, error } = await supabase.from('votes').insert([
       {
         user_id: currentUser.id,
         name_id: nameItem.id,
         is_liked: isLiked,
       },
-    ]);
+    ]).select().single();
+
+    if (!error && insertedVote) {
+      // Memorizziamo l'ultimo voto per permettere l'Annulla
+      setLastVotedItem({ nameItem, voteId: insertedVote.id });
+    }
 
     if (isLiked) {
+      // ... (tutto il resto della logica dei match rimane identico a prima)
       const { data: otherVotes } = await supabase
           .from('votes')
           .select('*')
@@ -457,6 +465,27 @@ export default function Home() {
 
     setAllNamesToVote((prev) => prev.filter((item) => item.id !== nameItem.id));
     setVotedCount((prev) => prev + 1);
+  };
+
+  const handleUndoLastVote = async () => {
+    if (!lastVotedItem || !currentUser) return;
+    setLoading(true);
+
+    // 1. Eliminiamo il voto da Supabase
+    const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('id', lastVotedItem.voteId);
+
+    if (!error) {
+      // 2. Rimettiamo il nome in cima alla lista dei nomi da votare
+      setAllNamesToVote((prev) => [lastVotedItem.nameItem, ...prev]);
+      // 3. Decrementiamo il contatore dei voti fatti
+      setVotedCount((prev) => Math.max(0, prev - 1));
+      // 4. Puliamo lo stato dell'ultimo voto
+      setLastVotedItem(null);
+    }
+    setLoading(false);
   };
 
   const getRoleBadgeText = (user: any) => {
@@ -838,11 +867,11 @@ export default function Home() {
 
           {/* FASE 2: SWIPE */}
           {currentUser && phase === 2 && (
-              <div className="flex-1 flex flex-col items-center justify-center relative my-4">
+              <div className="flex-1 flex flex-col items-center justify-between relative my-2">
                 {loading ? (
-                    <p className="text-gray-400 text-sm">Caricamento...</p>
+                    <p className="text-gray-400 text-sm my-auto">Caricamento...</p>
                 ) : allNamesToVote.length > 0 ? (
-                    <div className="relative w-full h-64 flex items-center justify-center">
+                    <div className="relative w-full h-64 flex items-center justify-center my-auto">
                       {allNamesToVote.map((item) => (
                           <TinderCard
                               key={item.id}
@@ -864,7 +893,7 @@ export default function Home() {
                                   }}
                                   className="pressable absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur-xs transition flex items-center gap-1 font-medium z-50 cursor-pointer"
                               >
-                                <BookOpen className="w-3.5 h-3.5" /> Test
+                                <BookOpen className="w-3.5 h-3.5" /> Info
                               </button>
 
                               <HeartHandshake className="w-12 h-12 mb-3 text-purple-200" />
@@ -880,12 +909,25 @@ export default function Home() {
                       ))}
                     </div>
                 ) : (
-                    <div className="text-center py-8">
+                    <div className="text-center py-8 my-auto">
                       <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                       <h3 className="font-bold text-gray-800">Hai votato tutti i nomi!</h3>
                       <p className="text-xs text-gray-500 mt-1">Guarda la classifica o i Match!</p>
                     </div>
                 )}
+
+                {/* PULSANTE ANNULLA ULTIMO VOTO */}
+                <div className="w-full pt-2 flex justify-center">
+                  {lastVotedItem && (
+                      <button
+                          onClick={handleUndoLastVote}
+                          disabled={loading}
+                          className="bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-bold px-4 py-2 rounded-xl transition shadow-2xs flex items-center gap-1.5 border border-purple-200 cursor-pointer"
+                      >
+                        <span>↩️ Annulla ultimo voto</span>
+                      </button>
+                  )}
+                </div>
               </div>
           )}
 
