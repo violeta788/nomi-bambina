@@ -31,7 +31,7 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState('');
   const [matchPopup, setMatchPopup] = useState<string | null>(null);
 
-  const avatarOptions = ['👶', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
+  const quickAvatarSuggestions = ['👶', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
 
   // Caricamento utente salvato
   useEffect(() => {
@@ -183,7 +183,7 @@ export default function Home() {
     }
   };
 
-  // 3. Creazione Nuovo Utente (con apertura automatica pop-up di benvenuto)
+  // 3. Creazione Nuovo Utente
   const createNewUser = async (nameToCreate: string, roleToSet: string) => {
     setLoading(true);
     if (roleToSet === 'mom' || roleToSet === 'dad') {
@@ -213,7 +213,6 @@ export default function Home() {
       fetchUserNames(newUser.id);
       setExistingUserFound(null);
 
-      // IDEA 2: Se è un partecipante generico (non mamma/papà), mostriamo il benvenuto al primo accesso
       if (roleToSet === 'guest') {
         setIsFirstLogin(true);
         setShowProfileModal(true);
@@ -229,9 +228,11 @@ export default function Home() {
     if (!currentUser) return;
     setLoading(true);
 
+    const cleanAvatar = profileAvatar.trim() || '👶';
+
     const { data: updated, error } = await supabase
         .from('users')
-        .update({ note: profileNote, avatar: profileAvatar })
+        .update({ note: profileNote, avatar: cleanAvatar })
         .eq('id', currentUser.id)
         .select()
         .single();
@@ -361,13 +362,13 @@ export default function Home() {
   };
 
   return (
-      <main className="min-h-screen bg-gradient-to-b from-pink-100 to-pink-50 flex flex-col items-center justify-center p-4 select-none">
-        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-pink-100 relative min-h-[540px] flex flex-col justify-between">
+      <main className="min-h-screen bg-gradient-to-b from-purple-100 via-purple-50 to-indigo-50 flex flex-col items-center justify-center p-4 select-none">
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-purple-100 relative min-h-[540px] flex flex-col justify-between">
 
-          {/* MODALE POPUP PROFILO FACOLTATIVO (IDEA 2: BENAVENUTO AL PRIMO ACCESSO) */}
+          {/* MODALE POPUP PROFILO FACOLTATIVO */}
           {showProfileModal && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-pink-100 relative animate-fade-in">
+                <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in">
                   <button
                       onClick={() => {
                         setShowProfileModal(false);
@@ -379,7 +380,7 @@ export default function Home() {
                   </button>
 
                   <div className="text-center">
-                    <div className="text-3xl mb-1">{profileAvatar}</div>
+                    <div className="text-4xl mb-1">{profileAvatar || '👶'}</div>
                     <h3 className="font-bold text-gray-800 text-lg">
                       {isFirstLogin ? `Benvenuto/a ${currentUser?.name}! 🎉` : 'Il tuo Profilo'}
                     </h3>
@@ -399,23 +400,36 @@ export default function Home() {
                         placeholder="Es. Zia preferita, Amica d'infanzia, Nonna..."
                         value={profileNote}
                         onChange={(e) => setProfileNote(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none"
+                        className="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none"
                     />
                   </div>
 
+                  {/* SELEZIONE EMOJI DA TASTIERA SMARTPHONE */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                      Scegli la tua Emoji:
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Scegli o digita la tua Emoji dalla tastiera:
                     </label>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {avatarOptions.map((emoji) => (
+                    <div className="flex gap-2 mb-2">
+                      <input
+                          type="text"
+                          maxLength={4}
+                          placeholder="Scegli dalla tastiera 📱"
+                          value={profileAvatar}
+                          onChange={(e) => setProfileAvatar(e.target.value)}
+                          className="w-full px-3 py-2 text-center text-xl border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-gray-400 mb-1.5 text-center">Oppure tocca una di queste veloci:</p>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {quickAvatarSuggestions.map((emoji) => (
                           <button
                               key={emoji}
                               type="button"
                               onClick={() => setProfileAvatar(emoji)}
-                              className={`text-xl p-2 rounded-xl border transition ${
+                              className={`text-lg p-1.5 rounded-xl border transition ${
                                   profileAvatar === emoji
-                                      ? 'bg-pink-100 border-pink-400 scale-110 shadow-xs'
+                                      ? 'bg-purple-100 border-purple-400 scale-110 shadow-xs'
                                       : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
                               }`}
                           >
@@ -429,7 +443,7 @@ export default function Home() {
                     <button
                         onClick={handleSaveProfile}
                         disabled={loading}
-                        className="w-full bg-pink-500 text-white font-bold py-2.5 rounded-xl hover:bg-pink-600 transition text-sm"
+                        className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm"
                     >
                       {loading ? 'Salvataggio...' : 'Salva e Continua'}
                     </button>
@@ -452,16 +466,16 @@ export default function Home() {
 
           {/* POPUP MATCH */}
           {matchPopup && (
-              <div className="absolute inset-0 bg-pink-500/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
+              <div className="absolute inset-0 bg-purple-600/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
                 <Sparkles className="w-16 h-16 mb-2 text-yellow-300 animate-bounce" />
                 <h2 className="text-3xl font-extrabold mb-1">È UN MATCH! 💕</h2>
-                <p className="text-sm text-pink-100 mb-4">Sia la Mamma che il Papà amano questo nome:</p>
-                <div className="bg-white text-pink-600 px-6 py-3 rounded-2xl text-2xl font-black shadow-lg mb-6">
+                <p className="text-sm text-purple-100 mb-4">Sia la Mamma che il Papà amano questo nome:</p>
+                <div className="bg-white text-purple-700 px-6 py-3 rounded-2xl text-2xl font-black shadow-lg mb-6">
                   {matchPopup}
                 </div>
                 <button
                     onClick={() => setMatchPopup(null)}
-                    className="bg-yellow-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition"
+                    className="bg-yellow-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition shadow-md"
                 >
                   Fantastico! 🎉
                 </button>
@@ -471,8 +485,8 @@ export default function Home() {
           {/* Intestazione */}
           <div>
             <div className="text-center mb-4 relative">
-              <div className="bg-pink-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Heart className="w-6 h-6 text-pink-500 fill-pink-500" />
+              <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Heart className="w-6 h-6 text-purple-600 fill-purple-600" />
               </div>
               <h1 className="text-2xl font-bold text-gray-800">Scegliamo il Nome!</h1>
 
@@ -480,7 +494,7 @@ export default function Home() {
                   <div className="flex flex-col items-center justify-center gap-1.5 mt-2">
                     <div className="flex items-center gap-2">
                       <p className="text-sm text-gray-700">
-                        Ciao <span className="font-extrabold text-pink-600">{currentUser.name}</span>
+                        Ciao <span className="font-extrabold text-purple-700">{currentUser.name}</span>
                       </p>
                       <button
                           onClick={handleLogout}
@@ -491,23 +505,22 @@ export default function Home() {
                       </button>
                     </div>
 
-                    {/* IDEA 1: BADGE COLORATO E EVIDENTE PER PERSONALIZZARE IL PROFILO */}
                     <button
                         onClick={() => {
                           setIsFirstLogin(false);
                           setShowProfileModal(true);
                         }}
-                        className="inline-flex items-center gap-1.5 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs px-3 py-1 rounded-full border border-pink-200 transition font-medium shadow-2xs"
+                        className="inline-flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs px-3 py-1 rounded-full border border-purple-200 transition font-medium shadow-2xs"
                     >
                       {getRoleBadgeText(currentUser) ? (
                           <>
                             <span>{getRoleBadgeText(currentUser)}</span>
-                            <Edit3 className="w-3 h-3 text-pink-400 ml-0.5" />
+                            <Edit3 className="w-3 h-3 text-purple-400 ml-0.5" />
                           </>
                       ) : (
                           <>
-                            <Edit3 className="w-3.5 h-3.5 text-pink-500" />
-                            <span className="font-semibold text-pink-600">✏️ Aggiungi chi sei</span>
+                            <Edit3 className="w-3.5 h-3.5 text-purple-600" />
+                            <span className="font-semibold text-purple-700">✏️ Aggiungi chi sei</span>
                           </>
                       )}
                     </button>
@@ -517,11 +530,11 @@ export default function Home() {
 
             {/* Navigazione Fasi */}
             {currentUser && (
-                <div className="grid grid-cols-4 bg-pink-50 p-1 rounded-2xl mb-6 border border-pink-100 text-center gap-1">
+                <div className="grid grid-cols-4 bg-purple-50 p-1 rounded-2xl mb-6 border border-purple-100 text-center gap-1">
                   <button
                       onClick={() => handleSwitchPhase(1)}
                       className={`py-2 text-[11px] font-bold rounded-xl transition ${
-                          phase === 1 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
+                          phase === 1 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
                     1. Nomi
@@ -529,7 +542,7 @@ export default function Home() {
                   <button
                       onClick={() => handleSwitchPhase(2)}
                       className={`py-2 text-[11px] font-bold rounded-xl transition ${
-                          phase === 2 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
+                          phase === 2 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
                     2. Swipe
@@ -537,7 +550,7 @@ export default function Home() {
                   <button
                       onClick={() => handleSwitchPhase(3)}
                       className={`py-2 text-[11px] font-bold rounded-xl transition ${
-                          phase === 3 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
+                          phase === 3 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
                     3. Tutti
@@ -545,10 +558,10 @@ export default function Home() {
                   <button
                       onClick={() => handleSwitchPhase(4)}
                       className={`py-2 text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-0.5 ${
-                          phase === 4 ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-500'
+                          phase === 4 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
-                    <Heart className="w-3 h-3 fill-pink-500 text-pink-500" /> Match
+                    <Heart className="w-3 h-3 fill-purple-600 text-purple-600" /> Match
                   </button>
                 </div>
             )}
@@ -568,7 +581,7 @@ export default function Home() {
                             placeholder="Es. Marco, Elena..."
                             value={userName}
                             onChange={(e) => setUserName(e.target.value)}
-                            className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800 mb-3"
+                            className="w-full px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-800 mb-3"
                             required
                         />
 
@@ -581,8 +594,8 @@ export default function Home() {
                               onClick={() => setIsParentRole(isParentRole === 'mom' ? null : 'mom')}
                               className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
                                   isParentRole === 'mom'
-                                      ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
-                                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                      : 'bg-purple-50/50 text-gray-600 border-purple-100 hover:bg-purple-100/50'
                               }`}
                           >
                             <span>👩</span> Sono la Mamma
@@ -592,8 +605,8 @@ export default function Home() {
                               onClick={() => setIsParentRole(isParentRole === 'dad' ? null : 'dad')}
                               className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
                                   isParentRole === 'dad'
-                                      ? 'bg-pink-500 text-white border-pink-500 shadow-sm'
-                                      : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                      : 'bg-purple-50/50 text-gray-600 border-purple-100 hover:bg-purple-100/50'
                               }`}
                           >
                             <span>👨</span> Sono il Papà
@@ -614,7 +627,7 @@ export default function Home() {
                       <button
                           type="submit"
                           disabled={loading}
-                          className="w-full bg-pink-500 text-white font-semibold py-2.5 rounded-xl hover:bg-pink-600 transition flex items-center justify-center gap-2"
+                          className="w-full bg-purple-600 text-white font-semibold py-2.5 rounded-xl hover:bg-purple-700 transition flex items-center justify-center gap-2 shadow-sm"
                       >
                         {loading ? 'Verifica...' : 'Entra nell\'app'} <ArrowRight className="w-4 h-4" />
                       </button>
@@ -652,7 +665,7 @@ export default function Home() {
                           />
                           <button
                               onClick={() => createNewUser(userName, isParentRole || 'guest')}
-                              className="bg-pink-500 text-white font-semibold px-3 py-1.5 rounded-xl text-xs hover:bg-pink-600 transition"
+                              className="bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-xl text-xs hover:bg-purple-700 transition"
                           >
                             Crea
                           </button>
@@ -677,12 +690,12 @@ export default function Home() {
                               setCurrentInput(e.target.value);
                               if (errorMessage) setErrorMessage('');
                             }}
-                            className="flex-1 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-pink-300 focus:outline-none text-gray-800"
+                            className="flex-1 px-4 py-2 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none text-gray-800"
                         />
                         <button
                             type="submit"
                             disabled={!currentInput.trim() || loading}
-                            className="bg-pink-500 text-white p-2.5 rounded-xl hover:bg-pink-600 disabled:opacity-50"
+                            className="bg-purple-600 text-white p-2.5 rounded-xl hover:bg-purple-700 disabled:opacity-50"
                         >
                           <Plus className="w-5 h-5" />
                         </button>
@@ -696,21 +709,21 @@ export default function Home() {
                       )}
                     </form>
                 ) : (
-                    <p className="text-center text-sm font-semibold text-green-600 bg-green-50 p-2 rounded-xl">
+                    <p className="text-center text-sm font-semibold text-emerald-600 bg-emerald-50 p-2 rounded-xl">
                       Hai raggiunto il limite di 10 nomi! 🎉
                     </p>
                 )}
 
                 <div className="flex justify-between items-center text-xs text-gray-500">
                   <span>I tuoi nomi inseriti:</span>
-                  <span className="font-bold text-pink-600">{names.length} / 10</span>
+                  <span className="font-bold text-purple-700">{names.length} / 10</span>
                 </div>
 
                 <ul className="space-y-2 max-h-48 overflow-y-auto">
                   {names.map((item) => (
                       <li
                           key={item.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100"
+                          className="flex items-center justify-between p-3 bg-purple-50/40 rounded-xl border border-purple-100"
                       >
                         <span className="font-medium text-gray-700">{item.name_text}</span>
                         <button
@@ -739,12 +752,12 @@ export default function Home() {
                               preventSwipe={['up', 'down']}
                               className="absolute w-full h-full"
                           >
-                            <div className="w-full h-full bg-gradient-to-br from-pink-400 to-pink-500 rounded-3xl shadow-xl flex flex-col items-center justify-center text-white p-6 cursor-grab active:cursor-grabbing border-4 border-white">
-                              <HeartHandshake className="w-12 h-12 mb-3 text-pink-200" />
+                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl shadow-xl flex flex-col items-center justify-center text-white p-6 cursor-grab active:cursor-grabbing border-4 border-white">
+                              <HeartHandshake className="w-12 h-12 mb-3 text-purple-200" />
                               <h2 className="text-3xl font-extrabold tracking-wide drop-shadow-md">
                                 {item.name_text}
                               </h2>
-                              <div className="flex gap-8 mt-6 text-xs text-pink-100 font-medium">
+                              <div className="flex gap-8 mt-6 text-xs text-purple-100 font-medium">
                                 <span>👈 Swipe Sinistra: No</span>
                                 <span>Swipe Destra: Sì 👉</span>
                               </div>
@@ -787,7 +800,7 @@ export default function Home() {
                                 className={`p-3 rounded-2xl border transition cursor-pointer ${
                                     index === 0
                                         ? 'bg-amber-50 border-amber-200'
-                                        : 'bg-gray-50 border-gray-100 hover:bg-gray-100/80'
+                                        : 'bg-purple-50/30 border-purple-100 hover:bg-purple-50/70'
                                 }`}
                             >
                               <div className="flex items-center justify-between">
@@ -799,8 +812,8 @@ export default function Home() {
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-gray-100 shadow-xs">
-                                    <Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" />
+                                  <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-purple-100 shadow-xs">
+                                    <Heart className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
                                     <span className="text-xs font-bold text-gray-700">{item.likes}</span>
                                   </div>
                                   {isExpanded ? (
@@ -813,16 +826,16 @@ export default function Home() {
 
                               {/* DETTAGLIO VOTANTI */}
                               {isExpanded && (
-                                  <div className="mt-2.5 pt-2 border-t border-gray-200/60 text-xs animate-fade-in">
+                                  <div className="mt-2.5 pt-2 border-t border-purple-100 text-xs animate-fade-in">
                                     <p className="text-[11px] font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
-                                      <Users className="w-3 h-3 text-pink-500" /> Piace a:
+                                      <Users className="w-3 h-3 text-purple-600" /> Piace a:
                                     </p>
                                     {item.voters.length > 0 ? (
                                         <div className="flex flex-wrap gap-1.5">
                                           {item.voters.map((voter: any) => (
                                               <span
                                                   key={voter.id}
-                                                  className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-gray-200 text-gray-700 font-medium text-[11px]"
+                                                  className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-purple-200 text-gray-700 font-medium text-[11px]"
                                               >
                                   <span>{voter.name}</span>
                                   <span className="text-[10px] text-gray-400">
@@ -850,7 +863,7 @@ export default function Home() {
           {currentUser && phase === 4 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
                 <h3 className="text-center font-bold text-gray-800 text-sm mb-1 flex items-center justify-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-pink-500" /> Match Mamma & Papà 💕
+                  <Sparkles className="w-4 h-4 text-purple-600" /> Match Mamma & Papà 💕
                 </h3>
                 <p className="text-center text-xs text-gray-400 mb-3">
                   Nomi approvati da entrambi i genitori
@@ -863,18 +876,18 @@ export default function Home() {
                       {coupleMatches.map((item) => (
                           <li
                               key={item.id}
-                              className="flex items-center justify-between p-3.5 bg-pink-50 rounded-2xl border border-pink-200 shadow-xs"
+                              className="flex items-center justify-between p-3.5 bg-purple-50 rounded-2xl border border-purple-200 shadow-xs"
                           >
-                            <span className="font-extrabold text-pink-700 text-base">{item.name_text}</span>
-                            <span className="text-xs bg-pink-500 text-white px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
+                            <span className="font-extrabold text-purple-800 text-base">{item.name_text}</span>
+                            <span className="text-xs bg-purple-600 text-white px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
                       👩‍❤️‍👨 Intesa Perfetta
                     </span>
                           </li>
                       ))}
                     </ul>
                 ) : (
-                    <div className="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-4">
-                      <Heart className="w-8 h-8 text-pink-300 mx-auto mb-2" />
+                    <div className="text-center py-6 bg-purple-50/30 rounded-2xl border border-dashed border-purple-200 p-4">
+                      <Heart className="w-8 h-8 text-purple-300 mx-auto mb-2" />
                       <p className="text-xs font-semibold text-gray-600">Nessun Match di coppia ancora!</p>
                       <p className="text-[11px] text-gray-400 mt-1">
                         Mamma e Papà devono registrarsi con i rispettivi ruoli ed effettuare lo Swipe!
@@ -887,7 +900,7 @@ export default function Home() {
           {/* Footer info */}
           <div className="text-center text-xs text-gray-400 pt-3 border-t border-gray-100">
             {phase === 2 && currentUser && (
-                <span>Voti completati: <strong className="text-pink-500">{votedCount}</strong></span>
+                <span>Voti completati: <strong className="text-purple-600">{votedCount}</strong></span>
             )}
             {(phase === 3 || phase === 4) && (
                 <span>Aggiornato in tempo reale ❤️</span>
