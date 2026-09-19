@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap, BookOpen, Smile } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
@@ -20,6 +20,9 @@ export default function Home() {
   const [profileNote, setProfileNote] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('👶');
 
+  // Modale Dettaglio Nome (Significato & Nickname)
+  const [selectedNameDetail, setSelectedNameDetail] = useState<any>(null);
+
   const [currentInput, setCurrentInput] = useState('');
   const [names, setNames] = useState<any[]>([]);
   const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
@@ -30,7 +33,6 @@ export default function Home() {
   const [groupMatches, setGroupMatches] = useState<any[]>([]);
   const [topAffinityUser, setTopAffinityUser] = useState<{ user: any; count: number } | null>(null);
 
-  const [expandedNameId, setExpandedNameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
@@ -195,10 +197,74 @@ export default function Home() {
   const handleSwitchPhase = (newPhase: any) => {
     setPhase(newPhase);
     setErrorMessage('');
-    setExpandedNameId(null);
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
     if (newPhase === 4) fetchCoupleMatches();
+  };
+
+  // Generatore Automatico di Significato e Soprannomi
+  const getsmartNameDetails = (nameText: string) => {
+    if (!nameText) return { meaning: "Un nome speciale pieno di dolcezza.", onomastico: "1 Novembre (Ognissanti)", nicknames: [] };
+
+    const clean = nameText.trim().toLowerCase();
+
+    // Database di esempio /euristica intelligente
+    const dictionary: Record<string, { meaning: string; onomastico: string; nicknames: string[] }> = {
+      sofia: {
+        meaning: "Dal greco Sophia, significa 'Sapienza', 'Saggezza'. Simbolo di intelligenza e grazia.",
+        onomastico: "30 Settembre (Santa Sofia)",
+        nicknames: ["Sofi", "Sofi-pop", "Sosò", "Fia"]
+      },
+      aurora: {
+        meaning: "Dal latino aurora, 'luminosa come l'alba'. Rappresenta un nuovo inizio e la luce del mattino.",
+        onomastico: "4 Ottobre (Santa Aurora)",
+        nicknames: ["Aury", "Rori", "Lulu"]
+      },
+      giulia: {
+        meaning: "Di origine latina, significa 'consacrata a Giove' o 'giovanile, piena di vita'.",
+        onomastico: "12 Aprile / 22 Maggio",
+        nicknames: ["Giulietta", "Giugiù", "Jules"]
+      },
+      emma: {
+        meaning: "Di origine germanica, significa 'universale', 'grande', 'protettrice'.",
+        onomastico: "19 Aprile (Santa Emma)",
+        nicknames: ["Emmolina", "Mimi", "Emmy"]
+      },
+      alice: {
+        meaning: "Dal germanico Adalhaid, significa 'di nobile stirpe' o 'creatura splendida'.",
+        onomastico: "16 Giugno (Sant'Alice)",
+        nicknames: ["Alcina", "Lali", "Ali"]
+      },
+      giorgia: {
+        meaning: "Deriva dal greco Georgos, colui che lavora la terra, 'agricoltrice'. Forte e determinata.",
+        onomastico: "23 Aprile (San Giorgio)",
+        nicknames: ["Giò", "Gigi", "Gioia"]
+      },
+      martina: {
+        meaning: "Legato al dio Marte, significa 'consacrata a Marte', simbolo di forza e coraggio.",
+        onomastico: "30 Gennaio (Santa Martina)",
+        nicknames: ["Marti", "Tina", "Marghina"]
+      },
+      BEATRICE: {
+        meaning: "Dal latino Beatrix, 'colei che rende felici' o 'portatrice di beatitudine'.",
+        onomastico: "18 Gennaio (Santa Beatrice)",
+        nicknames: ["Bea", "Trixie", "Tris"]
+      }
+    };
+
+    if (dictionary[clean]) {
+      return dictionary[clean];
+    }
+
+    // Fallback generico intelligente basato sulla prima/ultima lettera
+    const firstLetter = nameText.charAt(0).toUpperCase();
+    const shortNick = nameText.length > 4 ? nameText.substring(0, 4) : nameText;
+
+    return {
+      meaning: `Un nome affascinante che inizia con la lettera ${firstLetter}, portatore di eleganza e personalità unica.`,
+      onomastico: "1 Novembre (Ognissanti)",
+      nicknames: [`${shortNick}i`, `${nameText}-pop`, `Ciccio-${nameText}`]
+    };
   };
 
   // 1. Controllo Iniziale Accesso
@@ -389,7 +455,6 @@ export default function Home() {
     const isLiked = direction === 'right';
     if (!currentUser) return;
 
-    // Salva il voto
     await supabase.from('votes').insert([
       {
         user_id: currentUser.id,
@@ -398,7 +463,6 @@ export default function Home() {
       },
     ]);
 
-    // Se lo Swipe è "Sì", verifica le sintonia con gli altri
     if (isLiked) {
       const { data: otherVotes } = await supabase
           .from('votes')
@@ -414,7 +478,6 @@ export default function Home() {
             .in('id', otherVotes.map((v) => v.user_id));
 
         if (otherUsers && otherUsers.length > 0) {
-          // Check Match di Coppia Mamma-Papà
           const partnerRole = currentUser.role === 'mom' ? 'dad' : currentUser.role === 'dad' ? 'mom' : null;
           const partner = partnerRole ? otherUsers.find((u) => u.role === partnerRole) : null;
 
@@ -425,7 +488,6 @@ export default function Home() {
               name: nameItem.name_text,
             });
           } else {
-            // Match / Intesa con altri partecipanti del gruppo
             const firstOther = otherUsers[0];
             const badgeText = getRoleBadgeText(firstOther);
             setMatchPopup({
@@ -440,10 +502,6 @@ export default function Home() {
 
     setAllNamesToVote((prev) => prev.filter((item) => item.id !== nameItem.id));
     setVotedCount((prev) => prev + 1);
-  };
-
-  const toggleExpand = (id: string) => {
-    setExpandedNameId(expandedNameId === id ? null : id);
   };
 
   const getRoleBadgeText = (user: any) => {
@@ -462,6 +520,73 @@ export default function Home() {
   return (
       <main className="min-h-screen bg-gradient-to-b from-purple-100 via-purple-50 to-indigo-50 flex flex-col items-center justify-center p-4 select-none">
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-purple-100 relative min-h-[540px] flex flex-col justify-between">
+
+          {/* MODALE SIGNIFICATO & NICKNAME */}
+          {selectedNameDetail && (
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in max-h-[90%] overflow-y-auto">
+                  <button
+                      onClick={() => setSelectedNameDetail(null)}
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="text-center">
+                <span className="bg-purple-100 text-purple-700 text-xs font-bold px-3 py-1 rounded-full">
+                  ✨ Carta d'Identità del Nome
+                </span>
+                    <h3 className="text-2xl font-black text-gray-800 mt-2">
+                      {selectedNameDetail.text}
+                    </h3>
+                  </div>
+
+                  {/* SIGNIFICATO */}
+                  <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-100 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800">
+                      <BookOpen className="w-4 h-4 text-purple-600" /> Significato Originale
+                    </div>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      {getsmartNameDetails(selectedNameDetail.text).meaning}
+                    </p>
+                  </div>
+
+                  {/* ONOMASTICO */}
+                  <div className="p-3 bg-indigo-50/70 rounded-xl border border-indigo-100 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
+                      <Sparkles className="w-4 h-4 text-indigo-600" /> Onomastico
+                    </div>
+                    <p className="text-xs text-gray-700 font-medium">
+                      {getsmartNameDetails(selectedNameDetail.text).onomastico}
+                    </p>
+                  </div>
+
+                  {/* SOPRANNOMI & DIMINUTIVI */}
+                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                      <Smile className="w-4 h-4 text-amber-600" /> Soprannomi & Diminutivi Consigliati 🐻
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {getsmartNameDetails(selectedNameDetail.text).nicknames.map((nick, idx) => (
+                          <span
+                              key={idx}
+                              className="bg-white px-2.5 py-1 rounded-lg border border-amber-200 text-xs font-semibold text-amber-800 shadow-2xs"
+                          >
+                      ✨ {nick}
+                    </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                      onClick={() => setSelectedNameDetail(null)}
+                      className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm mt-2"
+                  >
+                    Chiudi
+                  </button>
+                </div>
+              </div>
+          )}
 
           {/* MODALE POPUP PROFILO FACOLTATIVO */}
           {showProfileModal && (
@@ -482,11 +607,6 @@ export default function Home() {
                     <h3 className="font-bold text-gray-800 text-lg">
                       {isFirstLogin ? `Benvenuto/a ${currentUser?.name}! 🎉` : 'Il tuo Profilo'}
                     </h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {isFirstLogin
-                          ? 'Vuoi aggiungere chi sei per la bimba (es. Zia, Nonno, Amica) e scegliere la tua emoji?'
-                          : 'Personalizza come ti vedono gli altri nella classifica!'}
-                    </p>
                   </div>
 
                   <div>
@@ -502,22 +622,17 @@ export default function Home() {
                     />
                   </div>
 
-                  {/* SELEZIONE EMOJI DA TASTIERA SMARTPHONE */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                       Scegli o digita la tua Emoji dalla tastiera:
                     </label>
-                    <div className="flex gap-2 mb-2">
-                      <input
-                          type="text"
-                          placeholder="Scegli dalla tastiera 📱"
-                          value={profileAvatar}
-                          onChange={(e) => setProfileAvatar(e.target.value)}
-                          className="w-full px-3 py-2 text-center text-xl text-gray-900 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none placeholder:text-gray-400"
-                      />
-                    </div>
-
-                    <p className="text-[10px] text-gray-400 mb-1.5 text-center">Oppure tocca una di queste veloci:</p>
+                    <input
+                        type="text"
+                        placeholder="Scegli dalla tastiera 📱"
+                        value={profileAvatar}
+                        onChange={(e) => setProfileAvatar(e.target.value)}
+                        className="w-full px-3 py-2 text-center text-xl text-gray-900 bg-white border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none mb-2"
+                    />
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {quickAvatarSuggestions.map((emoji) => (
                           <button
@@ -525,9 +640,7 @@ export default function Home() {
                               type="button"
                               onClick={() => setProfileAvatar(emoji)}
                               className={`text-lg p-1.5 rounded-xl border transition ${
-                                  profileAvatar === emoji
-                                      ? 'bg-purple-100 border-purple-400 scale-110 shadow-xs'
-                                      : 'bg-gray-50 border-gray-100 hover:bg-gray-100'
+                                  profileAvatar === emoji ? 'bg-purple-100 border-purple-400 scale-110' : 'bg-gray-50 border-gray-100'
                               }`}
                           >
                             {emoji}
@@ -536,27 +649,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="space-y-2 pt-1">
-                    <button
-                        onClick={handleSaveProfile}
-                        disabled={loading}
-                        className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm"
-                    >
-                      {loading ? 'Salvataggio...' : 'Salva e Continua'}
-                    </button>
-                    {isFirstLogin && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                              setShowProfileModal(false);
-                              setIsFirstLogin(false);
-                            }}
-                            className="w-full text-xs text-gray-400 hover:text-gray-600 py-1 transition"
-                        >
-                          Salta per ora
-                        </button>
-                    )}
-                  </div>
+                  <button
+                      onClick={handleSaveProfile}
+                      disabled={loading}
+                      className="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl hover:bg-purple-700 transition text-sm shadow-sm"
+                  >
+                    {loading ? 'Salvataggio...' : 'Salva e Continua'}
+                  </button>
                 </div>
               </div>
           )}
@@ -609,17 +708,8 @@ export default function Home() {
                         }}
                         className="inline-flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs px-3 py-1 rounded-full border border-purple-200 transition font-medium shadow-2xs"
                     >
-                      {getRoleBadgeText(currentUser) ? (
-                          <>
-                            <span>{getRoleBadgeText(currentUser)}</span>
-                            <Edit3 className="w-3 h-3 text-purple-400 ml-0.5" />
-                          </>
-                      ) : (
-                          <>
-                            <Edit3 className="w-3.5 h-3.5 text-purple-600" />
-                            <span className="font-semibold text-purple-700">✏️ Aggiungi chi sei</span>
-                          </>
-                      )}
+                      <span>{getRoleBadgeText(currentUser)}</span>
+                      <Edit3 className="w-3 h-3 text-purple-400 ml-0.5" />
                     </button>
                   </div>
               )}
@@ -664,7 +754,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* SCHERMATA LOGIN MINIMAL CON SUPPORTO OMONIMIA */}
+          {/* LOGIN */}
           {!currentUser && (
               <div className="space-y-4 my-auto">
                 {!existingUserFound ? (
@@ -690,9 +780,7 @@ export default function Home() {
                               type="button"
                               onClick={() => setIsParentRole(isParentRole === 'mom' ? null : 'mom')}
                               className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
-                                  isParentRole === 'mom'
-                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                                      : 'bg-purple-50/50 text-gray-600 border-purple-100 hover:bg-purple-100/50'
+                                  isParentRole === 'mom' ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50/50 text-gray-600 border-purple-100'
                               }`}
                           >
                             <span>👩</span> Sono la Mamma
@@ -701,17 +789,12 @@ export default function Home() {
                               type="button"
                               onClick={() => setIsParentRole(isParentRole === 'dad' ? null : 'dad')}
                               className={`py-2 px-2 text-xs font-semibold rounded-xl border transition flex items-center justify-center gap-1.5 ${
-                                  isParentRole === 'dad'
-                                      ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                                      : 'bg-purple-50/50 text-gray-600 border-purple-100 hover:bg-purple-100/50'
+                                  isParentRole === 'dad' ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50/50 text-gray-600 border-purple-100'
                               }`}
                           >
                             <span>👨</span> Sono il Papà
                           </button>
                         </div>
-                        <p className="text-[10px] text-gray-400 mt-1.5 text-center">
-                          * Necessario solo per attivare la funzione "Match di coppia"
-                        </p>
                       </div>
 
                       {errorMessage && (
@@ -730,50 +813,26 @@ export default function Home() {
                       </button>
                     </form>
                 ) : (
-                    /* RISOLUZIONE OMONIMIA */
-                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3 animate-fade-in">
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
                       <div className="flex items-start gap-2 text-amber-800">
                         <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600" />
                         <div>
                           <h4 className="font-bold text-sm">Esiste già un "{userName}"!</h4>
-                          <p className="text-xs text-amber-700 mt-0.5">
-                            Sei già entrato in precedenza da questo dispositivo o da un altro?
-                          </p>
+                          <p className="text-xs text-amber-700 mt-0.5">Sei già entrato in precedenza?</p>
                         </div>
                       </div>
-
                       <button
                           onClick={handleConfirmExistingUser}
                           className="w-full bg-amber-500 text-white font-bold py-2 rounded-xl hover:bg-amber-600 transition text-xs shadow-xs"
                       >
                         🔑 Sì, sono io! Rientra nel profilo
                       </button>
-
-                      <div className="border-t border-amber-200/60 pt-2 text-center">
-                        <p className="text-[11px] text-amber-800 mb-2">
-                          Oppure sei un altro {userName}? Aggiungi un'iniziale (es. {userName} R.):
-                        </p>
-                        <div className="flex gap-2">
-                          <input
-                              type="text"
-                              placeholder={`Es. ${userName} B.`}
-                              onChange={(e) => setUserName(e.target.value)}
-                              className="flex-1 px-3 py-1.5 border rounded-xl text-xs bg-white text-gray-900 focus:outline-none"
-                          />
-                          <button
-                              onClick={() => createNewUser(userName, isParentRole || 'guest')}
-                              className="bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-xl text-xs hover:bg-purple-700 transition"
-                          >
-                            Crea
-                          </button>
-                        </div>
-                      </div>
                     </div>
                 )}
               </div>
           )}
 
-          {/* FASE 1: INSERIMENTO NOMI */}
+          {/* FASE 1: INSERIMENTO NOMI (Con click per vedere significato) */}
           {currentUser && phase === 1 && (
               <div className="space-y-4 my-auto">
                 {names.length < 10 ? (
@@ -797,7 +856,6 @@ export default function Home() {
                           <Plus className="w-5 h-5" />
                         </button>
                       </div>
-
                       {errorMessage && (
                           <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100">
                             <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -812,7 +870,7 @@ export default function Home() {
                 )}
 
                 <div className="flex justify-between items-center text-xs text-gray-500">
-                  <span>I tuoi nomi inseriti:</span>
+                  <span>I tuoi nomi (Tocca per significato 📖):</span>
                   <span className="font-bold text-purple-700">{names.length} / 10</span>
                 </div>
 
@@ -822,10 +880,15 @@ export default function Home() {
                           key={item.id}
                           className="flex items-center justify-between p-3 bg-purple-50/40 rounded-xl border border-purple-100"
                       >
-                        <span className="font-medium text-gray-700">{item.name_text}</span>
+                        <button
+                            onClick={() => setSelectedNameDetail({ text: item.name_text })}
+                            className="font-medium text-purple-900 hover:underline flex items-center gap-1.5 text-left flex-1"
+                        >
+                          <span>✨ {item.name_text}</span>
+                        </button>
                         <button
                             onClick={() => handleRemoveName(item.id)}
-                            className="text-gray-400 hover:text-red-500 transition"
+                            className="text-gray-400 hover:text-red-500 transition ml-2"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -849,7 +912,17 @@ export default function Home() {
                               preventSwipe={['up', 'down']}
                               className="absolute w-full h-full"
                           >
-                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl shadow-xl flex flex-col items-center justify-center text-white p-6 cursor-grab active:cursor-grabbing border-4 border-white">
+                            <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl shadow-xl flex flex-col items-center justify-center text-white p-6 cursor-grab active:cursor-grabbing border-4 border-white relative">
+                              <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedNameDetail({ text: item.name_text });
+                                  }}
+                                  className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-[11px] px-2.5 py-1 rounded-full backdrop-blur-xs transition flex items-center gap-1 font-medium"
+                              >
+                                <BookOpen className="w-3 h-3" /> Info
+                              </button>
+
                               <HeartHandshake className="w-12 h-12 mb-3 text-purple-200" />
                               <h2 className="text-3xl font-extrabold tracking-wide drop-shadow-md">
                                 {item.name_text}
@@ -866,89 +939,54 @@ export default function Home() {
                     <div className="text-center py-8">
                       <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
                       <h3 className="font-bold text-gray-800">Hai votato tutti i nomi!</h3>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Guarda la classifica o i Match per scoprire le preferenze!
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Guarda la classifica o i Match!</p>
                     </div>
                 )}
               </div>
           )}
 
-          {/* FASE 3: CLASSIFICA CON DETTAGLIO VOTI */}
+          {/* FASE 3: CLASSIFICA (Con tap per info) */}
           {currentUser && phase === 3 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
                 <h3 className="text-center font-bold text-gray-700 text-sm mb-1 flex items-center justify-center gap-1.5">
                   <Award className="w-4 h-4 text-amber-500" /> Classifica Generale
                 </h3>
                 <p className="text-center text-[11px] text-gray-400 mb-2">
-                  Clicca su un nome per vedere chi lo ha votato! 👆
+                  Tocca il nome per significato e nickname 📖 | Freccia per votanti 👇
                 </p>
 
                 {loading ? (
                     <p className="text-center text-gray-400 text-sm">Calcolo classifica...</p>
                 ) : leaderboard.length > 0 ? (
                     <ul className="space-y-2 max-h-64 overflow-y-auto">
-                      {leaderboard.map((item, index) => {
-                        const isExpanded = expandedNameId === item.id;
-                        return (
-                            <li
-                                key={item.id}
-                                onClick={() => toggleExpand(item.id)}
-                                className={`p-3 rounded-2xl border transition cursor-pointer ${
-                                    index === 0
-                                        ? 'bg-amber-50 border-amber-200'
-                                        : 'bg-purple-50/30 border-purple-100 hover:bg-purple-50/70'
-                                }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-xs text-gray-400 w-4">
-                            {index + 1}.
-                          </span>
-                                  <span className="font-bold text-gray-800 text-sm">{item.text}</span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-purple-100 shadow-xs">
-                                    <Heart className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
-                                    <span className="text-xs font-bold text-gray-700">{item.likes}</span>
-                                  </div>
-                                  {isExpanded ? (
-                                      <ChevronUp className="w-4 h-4 text-gray-400" />
-                                  ) : (
-                                      <ChevronDown className="w-4 h-4 text-gray-400" />
-                                  )}
-                                </div>
+                      {leaderboard.map((item, index) => (
+                          <li
+                              key={item.id}
+                              className={`p-3 rounded-2xl border transition ${
+                                  index === 0 ? 'bg-amber-50 border-amber-200' : 'bg-purple-50/30 border-purple-100'
+                              }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-xs text-gray-400 w-4">{index + 1}.</span>
+                                <button
+                                    onClick={() => setSelectedNameDetail({ text: item.text })}
+                                    className="font-bold text-gray-800 text-sm hover:text-purple-600 transition flex items-center gap-1.5 text-left"
+                                >
+                                  <span>{item.text}</span>
+                                  <BookOpen className="w-3 h-3 text-purple-400" />
+                                </button>
                               </div>
 
-                              {/* DETTAGLIO VOTANTI */}
-                              {isExpanded && (
-                                  <div className="mt-2.5 pt-2 border-t border-purple-100 text-xs animate-fade-in">
-                                    <p className="text-[11px] font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
-                                      <Users className="w-3 h-3 text-purple-600" /> Piace a:
-                                    </p>
-                                    {item.voters.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {item.voters.map((voter: any) => (
-                                              <span
-                                                  key={voter.id}
-                                                  className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-purple-200 text-gray-700 font-medium text-[11px]"
-                                              >
-                                  <span>{voter.name}</span>
-                                  <span className="text-[10px] text-gray-400">
-                                    ({getRoleBadgeText(voter)})
-                                  </span>
-                                </span>
-                                          ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-400 text-[11px] italic">Nessun voto ricevuto finora.</p>
-                                    )}
-                                  </div>
-                              )}
-                            </li>
-                        );
-                      })}
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-purple-100 shadow-xs">
+                                  <Heart className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
+                                  <span className="text-xs font-bold text-gray-700">{item.likes}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </li>
+                      ))}
                     </ul>
                 ) : (
                     <p className="text-center text-xs text-gray-400">Nessun nome inserito.</p>
@@ -956,11 +994,9 @@ export default function Home() {
               </div>
           )}
 
-          {/* FASE 4: MATCH & INTESA DI GRUPPO */}
+          {/* FASE 4: MATCH & AFFINITÀ */}
           {currentUser && phase === 4 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-start max-h-80 overflow-y-auto pr-1">
-
-                {/* AFFINITÀ MAGGIORE DELL'UTENTE */}
                 {topAffinityUser && (
                     <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 shadow-2xs flex items-center gap-3">
                       <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
@@ -969,13 +1005,12 @@ export default function Home() {
                       <div>
                         <h4 className="font-bold text-xs text-amber-900">La tua Sintonia Maggiore 💕</h4>
                         <p className="text-[11px] text-amber-700 mt-0.5">
-                          Hai i gusti più simili a <strong className="text-amber-900">{topAffinityUser.user.name}</strong> ({topAffinityUser.count} nomi in comune)!
+                          Hai i gusti più simili a <strong className="text-amber-900">{topAffinityUser.user.name}</strong> ({topAffinityUser.count} in comune)!
                         </p>
                       </div>
                     </div>
                 )}
 
-                {/* SEZIONE 1: MATCH DI COPPIA (MAMMA & PAPÀ) */}
                 <div>
                   <h3 className="font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Match Mamma & Papà
@@ -985,9 +1020,10 @@ export default function Home() {
                         {coupleMatches.map((item) => (
                             <li
                                 key={item.id}
-                                className="flex items-center justify-between p-2.5 bg-purple-50 rounded-xl border border-purple-200"
+                                onClick={() => setSelectedNameDetail({ text: item.name_text })}
+                                className="flex items-center justify-between p-2.5 bg-purple-50 rounded-xl border border-purple-200 cursor-pointer hover:bg-purple-100/50 transition"
                             >
-                              <span className="font-extrabold text-purple-900 text-sm">{item.name_text}</span>
+                              <span className="font-extrabold text-purple-900 text-sm">✨ {item.name_text}</span>
                               <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-lg font-bold">
                         👩‍❤️‍👨 Intesa Perfetta
                       </span>
@@ -1000,45 +1036,6 @@ export default function Home() {
                       </p>
                   )}
                 </div>
-
-                {/* SEZIONE 2: NOMI PIÙ AMATI NEL GRUPPO */}
-                <div>
-                  <h3 className="font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-indigo-600" /> Nomi più Condivisi dal Gruppo
-                  </h3>
-                  {groupMatches.length > 0 ? (
-                      <ul className="space-y-2">
-                        {groupMatches.map((item) => (
-                            <li
-                                key={item.id}
-                                className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-bold text-gray-800 text-sm">{item.text}</span>
-                                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
-                          {item.likes} Approvazioni
-                        </span>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {item.voters.map((voter: any) => (
-                                    <span
-                                        key={voter.id}
-                                        className="bg-white border text-gray-600 text-[10px] px-1.5 py-0.5 rounded-md font-medium"
-                                    >
-                            {voter.name} ({getRoleBadgeText(voter)})
-                          </span>
-                                ))}
-                              </div>
-                            </li>
-                        ))}
-                      </ul>
-                  ) : (
-                      <p className="text-[11px] text-gray-400 italic bg-gray-50 p-2 rounded-xl border border-gray-100">
-                        Continuate a fare Swipe per trovare le prime intese!
-                      </p>
-                  )}
-                </div>
-
               </div>
           )}
 
@@ -1047,8 +1044,8 @@ export default function Home() {
             {phase === 2 && currentUser && (
                 <span>Voti completati: <strong className="text-purple-600">{votedCount}</strong></span>
             )}
-            {(phase === 3 || phase === 4) && (
-                <span>Aggiornato in tempo reale ❤️</span>
+            {(phase === 1 || phase === 3 || phase === 4) && (
+                <span>Tocca un nome per scoprire significato e nickname 📖</span>
             )}
           </div>
 
