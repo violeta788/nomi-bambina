@@ -31,7 +31,7 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState('');
   const [matchPopup, setMatchPopup] = useState<string | null>(null);
 
-  const quickAvatarSuggestions = ['👶', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
+  const quickAvatarSuggestions = ['👶', '👩', '👨', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
 
   // Caricamento utente salvato
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Home() {
       const parsed = JSON.parse(savedUser);
       setCurrentUser(parsed);
       setProfileNote(parsed.note || '');
-      setProfileAvatar(parsed.avatar || '👶');
+      setProfileAvatar(parsed.avatar || (parsed.role === 'mom' ? '👩' : parsed.role === 'dad' ? '👨' : '👶'));
       fetchUserNames(parsed.id);
     }
   }, []);
@@ -171,12 +171,12 @@ export default function Home() {
     }
   };
 
-  // 2. Conferma Rientro Utente Esistente (carica note e avatar specifici dell'utente)
+  // 2. Conferma Rientro Utente Esistente
   const handleConfirmExistingUser = () => {
     if (existingUserFound) {
       setCurrentUser(existingUserFound);
       setProfileNote(existingUserFound.note || '');
-      setProfileAvatar(existingUserFound.avatar || '👶');
+      setProfileAvatar(existingUserFound.avatar || (existingUserFound.role === 'mom' ? '👩' : existingUserFound.role === 'dad' ? '👨' : '👶'));
       localStorage.setItem('nomi_bambina_user', JSON.stringify(existingUserFound));
       fetchUserNames(existingUserFound.id);
       setExistingUserFound(null);
@@ -200,8 +200,8 @@ export default function Home() {
       }
     }
 
-    const initialAvatar = '👶';
-    const initialNote = '';
+    const initialAvatar = roleToSet === 'mom' ? '👩' : roleToSet === 'dad' ? '👨' : '👶';
+    const initialNote = roleToSet === 'mom' ? 'Mamma' : roleToSet === 'dad' ? 'Papà' : '';
 
     const { data: newUser, error } = await supabase
         .from('users')
@@ -227,12 +227,12 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Salva Aggiornamenti Profilo (Sincronizza sempre correttamente sia DB che stato locale)
+  // Salva Aggiornamenti Profilo
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     setLoading(true);
 
-    const cleanAvatar = profileAvatar.trim() || '👶';
+    const cleanAvatar = profileAvatar.trim() || (currentUser.role === 'mom' ? '👩' : currentUser.role === 'dad' ? '👨' : '👶');
     const cleanNote = profileNote.trim();
 
     const updatedUserObj = {
@@ -266,7 +266,7 @@ export default function Home() {
     }
   };
 
-  // Logout (Pulisce sia la sessione che i campi del form del profilo)
+  // Logout
   const handleLogout = () => {
     localStorage.removeItem('nomi_bambina_user');
     setCurrentUser(null);
@@ -376,11 +376,18 @@ export default function Home() {
     setExpandedNameId(expandedNameId === id ? null : id);
   };
 
+  // Helper per mostrare Badge ed Emoji personalizzati per tutti (inclusi Mamma e Papà)
   const getRoleBadgeText = (user: any) => {
     if (!user) return '';
-    if (user.role === 'mom') return '👩 Mamma';
-    if (user.role === 'dad') return '👨 Papà';
-    return user.note ? `${user.avatar || '👶'} ${user.note}` : null;
+    const avatarEmoji = user.avatar || (user.role === 'mom' ? '👩' : user.role === 'dad' ? '👨' : '👶');
+
+    if (user.role === 'mom') {
+      return `${avatarEmoji} ${user.note || 'Mamma'}`;
+    }
+    if (user.role === 'dad') {
+      return `${avatarEmoji} ${user.note || 'Papà'}`;
+    }
+    return user.note ? `${avatarEmoji} ${user.note}` : `${avatarEmoji} Partecipante`;
   };
 
   return (
@@ -860,7 +867,7 @@ export default function Home() {
                                               >
                                   <span>{voter.name}</span>
                                   <span className="text-[10px] text-gray-400">
-                                    ({getRoleBadgeText(voter) || `${voter.avatar || '👶'} Partecipante`})
+                                    ({getRoleBadgeText(voter)})
                                   </span>
                                 </span>
                                           ))}
