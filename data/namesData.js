@@ -1,6 +1,6 @@
 // data/namesData.js
 
-export const namesDatabase: Record<string, { meaning: string; onomastico: string }> = {
+export const namesDatabase = {
     sofia: {
         meaning: "Dal greco Sophia, significa 'Sapienza', 'Saggezza'. Simbolo di intelligenza e grazia.",
         onomastico: "30 Settembre (Santa Sofia)"
@@ -45,17 +45,13 @@ export const namesDatabase: Record<string, { meaning: string; onomastico: string
         meaning: "Di origine latina, indicava nell'antica Roma la fanciulla nobile che aiutava nei sacrifici. Significa 'ministra degli dèi' o 'giovane di nobile stirpe'.",
         onomastico: "14 Luglio (Santa Camilla)"
     },
-    Ginevra: {
+    ginevra: {
         meaning: "Di origine celtica o gaelica, legato alle leggende arturiane (Ginevra, sposa di Artù). Significa 'spirito bianco' o 'onda splendente'.",
         onomastico: "1 Novembre (Ognissanti)"
     },
-    giorgia: {
-        meaning: "Deriva dal greco antico Georgos, che significa 'agricoltore', 'colui che lavora la terra'.",
-        onomastico: "23 Aprile (San Giorgio)"
-    },
     ludovica: {
         meaning: "Di origine germanica (Hlodovik), significa 'famosa in battaglia' o 'illustre guerriera'.",
-        onomastico: "2 Marz / 13 Giugno (Beata Ludovica)"
+        onomastico: "2 Marzo / 13 Giugno (Beata Ludovica)"
     },
     bianca: {
         meaning: "Di origine germanica, significa 'lucente', 'bianca', 'pura'.",
@@ -68,9 +64,5 @@ export const namesDatabase: Record<string, { meaning: string; onomastico: string
     chiara: {
         meaning: "Dal latino clarus, significa 'luminosa', 'chiara', 'illustre'. Famosa per Santa Chiara d'Assisi.",
         onomastico: "11 Agosto (Santa Chiara)"
-    },
-    giorgia: {
-        meaning: "Dal greco Georgos, 'lavoratore della terra'.",
-        onomastico: "23 Aprile"
     }
 };
