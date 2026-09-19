@@ -854,9 +854,13 @@ export default function Home() {
                               <button
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    e.preventDefault();
                                     setSelectedNameDetail({ text: item.name_text });
                                   }}
-                                  className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-[11px] px-2.5 py-1 rounded-full backdrop-blur-xs transition flex items-center gap-1 font-medium"
+                                  onTouchStart={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                  className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-[11px] px-2.5 py-1 rounded-full backdrop-blur-xs transition flex items-center gap-1 font-medium z-30"
                               >
                                 <BookOpen className="w-3 h-3" /> Info
                               </button>
