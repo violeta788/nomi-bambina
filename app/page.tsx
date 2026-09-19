@@ -864,7 +864,7 @@ export default function Home() {
                                   }}
                                   className="pressable absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white text-[11px] px-3 py-1.5 rounded-full backdrop-blur-xs transition flex items-center gap-1 font-medium z-50 cursor-pointer"
                               >
-                                <BookOpen className="w-3.5 h-3.5" /> Info
+                                <BookOpen className="w-3.5 h-3.5" /> Test
                               </button>
 
                               <HeartHandshake className="w-12 h-12 mb-3 text-purple-200" />
