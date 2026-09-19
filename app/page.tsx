@@ -171,7 +171,7 @@ export default function Home() {
     }
   };
 
-  // 2. Conferma Rientro Utente Esistente
+  // 2. Conferma Rientro Utente Esistente (carica note e avatar specifici dell'utente)
   const handleConfirmExistingUser = () => {
     if (existingUserFound) {
       setCurrentUser(existingUserFound);
@@ -200,15 +200,19 @@ export default function Home() {
       }
     }
 
+    const initialAvatar = '👶';
+    const initialNote = '';
+
     const { data: newUser, error } = await supabase
         .from('users')
-        .insert([{ name: nameToCreate, role: roleToSet, avatar: '👶' }])
+        .insert([{ name: nameToCreate, role: roleToSet, avatar: initialAvatar, note: initialNote }])
         .select()
         .single();
 
     if (!error && newUser) {
       setCurrentUser(newUser);
-      setProfileAvatar('👶');
+      setProfileAvatar(initialAvatar);
+      setProfileNote(initialNote);
       localStorage.setItem('nomi_bambina_user', JSON.stringify(newUser));
       fetchUserNames(newUser.id);
       setExistingUserFound(null);
@@ -223,22 +227,24 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Salva Aggiornamenti Profilo (Corretto per evitare blocchi)
+  // Salva Aggiornamenti Profilo (Sincronizza sempre correttamente sia DB che stato locale)
   const handleSaveProfile = async () => {
     if (!currentUser) return;
     setLoading(true);
 
     const cleanAvatar = profileAvatar.trim() || '👶';
+    const cleanNote = profileNote.trim();
+
     const updatedUserObj = {
       ...currentUser,
-      note: profileNote,
+      note: cleanNote,
       avatar: cleanAvatar
     };
 
     try {
       const { data: updated, error } = await supabase
           .from('users')
-          .update({ note: profileNote, avatar: cleanAvatar })
+          .update({ note: cleanNote, avatar: cleanAvatar })
           .eq('id', currentUser.id)
           .select()
           .single();
@@ -247,7 +253,6 @@ export default function Home() {
         setCurrentUser(updated);
         localStorage.setItem('nomi_bambina_user', JSON.stringify(updated));
       } else {
-        // Fallback in locale se la colonna database dà avviso
         setCurrentUser(updatedUserObj);
         localStorage.setItem('nomi_bambina_user', JSON.stringify(updatedUserObj));
       }
@@ -261,7 +266,7 @@ export default function Home() {
     }
   };
 
-  // Logout
+  // Logout (Pulisce sia la sessione che i campi del form del profilo)
   const handleLogout = () => {
     localStorage.removeItem('nomi_bambina_user');
     setCurrentUser(null);
@@ -269,6 +274,8 @@ export default function Home() {
     setUserName('');
     setIsParentRole(null);
     setExistingUserFound(null);
+    setProfileNote('');
+    setProfileAvatar('👶');
     setPhase(1);
     setErrorMessage('');
   };
@@ -427,7 +434,6 @@ export default function Home() {
                     <div className="flex gap-2 mb-2">
                       <input
                           type="text"
-                          maxLength={4}
                           placeholder="Scegli dalla tastiera 📱"
                           value={profileAvatar}
                           onChange={(e) => setProfileAvatar(e.target.value)}
