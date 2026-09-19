@@ -7,6 +7,7 @@ import TinderCard from 'react-tinder-card';
 import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
 
 export default function Home() {
+  const [expandedVotersId, setExpandedVotersId] = useState<string | null>(null);
   const [myVotesList, setMyVotesList] = useState<any[]>([]);
   const [lastVotedItem, setLastVotedItem] = useState<{ nameItem: any; voteId: string } | null>(null);
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità, 5 = Miei Voti
@@ -1022,57 +1023,76 @@ export default function Home() {
                   <Award className="w-4 h-4 text-amber-500" /> Classifica Generale
                 </h3>
                 <p className="text-center text-[11px] text-gray-400 mb-2">
-                  Tocca il nome per il significato 📖
+                  Tocca il nome per il significato 📖 o i votanti 👥
                 </p>
 
                 {loading ? (
                     <p className="text-center text-gray-400 text-sm">Calcolo classifica...</p>
                 ) : leaderboard.length > 0 ? (
                     <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                      {leaderboard.map((item, index) => (
-                          <li
-                              key={item.id}
-                              className={`p-3 rounded-2xl border transition ${
-                                  index === 0 ? 'bg-amber-50 border-amber-200' : 'bg-purple-50/30 border-purple-100'
-                              }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-extrabold text-xs text-gray-400 w-4">{index + 1}.</span>
-                                <button
-                                    onClick={() => setSelectedNameDetail({ text: item.text })}
-                                    className="font-bold text-gray-800 text-sm hover:text-purple-600 transition flex items-center gap-1.5 text-left"
-                                >
-                                  <span>{item.text}</span>
-                                  <BookOpen className="w-3 h-3 text-purple-400" />
-                                </button>
-                              </div>
+                      {leaderboard.map((item, index) => {
+                        const isExpanded = expandedVotersId === item.id;
 
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-purple-100 shadow-xs">
-                                  <Heart className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
-                                  <span className="text-xs font-bold text-gray-700">{item.likes}</span>
+                        return (
+                            <li
+                                key={item.id}
+                                className={`p-3 rounded-2xl border transition ${
+                                    index === 0 ? 'bg-amber-50 border-amber-200' : 'bg-purple-50/30 border-purple-100'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-extrabold text-xs text-gray-400 w-4">{index + 1}.</span>
+                                  <button
+                                      onClick={() => setSelectedNameDetail({ text: item.text })}
+                                      className="font-bold text-gray-800 text-sm hover:text-purple-600 transition flex items-center gap-1.5 text-left"
+                                  >
+                                    <span>{item.text}</span>
+                                    <BookOpen className="w-3 h-3 text-purple-400" />
+                                  </button>
                                 </div>
-                              </div>
-                            </div>
 
-                            {/* Elenco di chi ha messo mi piace */}
-                            {item.voters && item.voters.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-purple-100/60 flex flex-wrap gap-1.5 items-center">
-                                  <span className="text-[10px] text-gray-400 font-medium">Piace a:</span>
-                                  {item.voters.map((voter: any) => (
-                                      <span
-                                          key={voter.id}
-                                          className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-purple-100 text-[10px] font-semibold text-purple-800 shadow-2xs"
+                                <div className="flex items-center gap-2">
+                                  {/* Pulsante per mostrare/nascondere i votanti se ci sono like */}
+                                  {item.voters && item.voters.length > 0 ? (
+                                      <button
+                                          onClick={() => setExpandedVotersId(isExpanded ? null : item.id)}
+                                          className={`flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
+                                              isExpanded
+                                                  ? 'bg-purple-600 text-white border-purple-600'
+                                                  : 'bg-white text-gray-700 border-purple-100 hover:bg-purple-50'
+                                          }`}
                                       >
-                                        <span>{voter.avatar || '👶'}</span>
-                                        <span>{voter.name}</span>
-                                      </span>
-                                  ))}
+                                        <Heart className={`w-3.5 h-3.5 ${isExpanded ? 'fill-white text-white' : 'text-purple-600 fill-purple-600'}`} />
+                                        <span>{item.likes}</span>
+                                      </button>
+                                  ) : (
+                                      <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-purple-100 shadow-xs text-gray-400">
+                                        <Heart className="w-3.5 h-3.5 text-gray-300" />
+                                        <span className="text-xs font-bold">0</span>
+                                      </div>
+                                  )}
                                 </div>
-                            )}
-                          </li>
-                      ))}
+                              </div>
+
+                              {/* Elenco dei votanti a scomparsa (si apre solo se clicchi sul contatore dei like) */}
+                              {isExpanded && item.voters && item.voters.length > 0 && (
+                                  <div className="mt-2.5 pt-2 border-t border-purple-100/80 flex flex-wrap gap-1.5 items-center animate-fade-in">
+                                    <span className="text-[10px] text-gray-400 font-medium">A chi piace:</span>
+                                    {item.voters.map((voter: any) => (
+                                        <span
+                                            key={voter.id}
+                                            className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-purple-200 text-[10px] font-semibold text-purple-800 shadow-2xs"
+                                        >
+                                          <span>{voter.avatar || '👶'}</span>
+                                          <span>{voter.name}</span>
+                                        </span>
+                                    ))}
+                                  </div>
+                              )}
+                            </li>
+                        );
+                      })}
                     </ul>
                 ) : (
                     <p className="text-center text-xs text-gray-400">Nessun nome inserito.</p>
