@@ -1028,7 +1028,7 @@ export default function Home() {
                 {loading ? (
                     <p className="text-center text-gray-400 text-sm">Calcolo classifica...</p>
                 ) : leaderboard.length > 0 ? (
-                    <ul className="space-y-2 max-h-64 overflow-y-auto">
+                    <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
                       {leaderboard.map((item, index) => (
                           <li
                               key={item.id}
@@ -1055,6 +1055,22 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* Elenco di chi ha messo mi piace */}
+                            {item.voters && item.voters.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-purple-100/60 flex flex-wrap gap-1.5 items-center">
+                                  <span className="text-[10px] text-gray-400 font-medium">Piace a:</span>
+                                  {item.voters.map((voter: any) => (
+                                      <span
+                                          key={voter.id}
+                                          className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-purple-100 text-[10px] font-semibold text-purple-800 shadow-2xs"
+                                      >
+                                        <span>{voter.avatar || '👶'}</span>
+                                        <span>{voter.name}</span>
+                                      </span>
+                                  ))}
+                                </div>
+                            )}
                           </li>
                       ))}
                     </ul>
