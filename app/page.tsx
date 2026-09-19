@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import { namesDatabase } from '../data/namesData';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
@@ -202,61 +203,19 @@ export default function Home() {
     if (newPhase === 4) fetchCoupleMatches();
   };
 
-  // Dizionario pulito con Significato e Onomastico
+  // Funzione di ricerca nel database locale (case-insensitive)
   const getSmartNameDetails = (nameText: string) => {
     if (!nameText) return { meaning: "Un nome speciale pieno di dolcezza.", onomastico: "1 Novembre (Ognissanti)" };
 
     const clean = nameText.trim().toLowerCase();
 
-    const dictionary: Record<string, { meaning: string; onomastico: string }> = {
-      sofia: {
-        meaning: "Dal greco Sophia, significa 'Sapienza', 'Saggezza'. Simbolo di intelligenza e grazia.",
-        onomastico: "30 Settembre (Santa Sofia)"
-      },
-      aurora: {
-        meaning: "Dal latino aurora, 'luminosa come l'alba'. Rappresenta un nuovo inizio e la luce del mattino.",
-        onomastico: "4 Ottobre (Santa Aurora)"
-      },
-      giulia: {
-        meaning: "Di origine latina, significa 'consacrata a Giove' o 'giovanile, piena di vita'.",
-        onomastico: "12 Aprile / 22 Maggio"
-      },
-      emma: {
-        meaning: "Di origine germanica, significa 'universale', 'grande', 'protettrice'.",
-        onomastico: "19 Aprile (Santa Emma)"
-      },
-      alice: {
-        meaning: "Dal germanico Adalhaid, significa 'di nobile stirpe' o 'creatura splendida'.",
-        onomastico: "16 Giugno (Sant'Alice)"
-      },
-      giorgia: {
-        meaning: "Deriva dal greco Georgos, colui che lavora la terra, 'agricoltrice'. Forte e determinata.",
-        onomastico: "23 Aprile (San Giorgio)"
-      },
-      martina: {
-        meaning: "Legato al dio Marte, significa 'consacrata a Marte', simbolo di forza e coraggio.",
-        onomastico: "30 Gennaio (Santa Martina)"
-      },
-      beatrice: {
-        meaning: "Dal latino Beatrix, 'colei che rende felici' o 'portatrice di beatitudine'.",
-        onomastico: "18 Gennaio (Santa Beatrice)"
-      },
-      francesca: {
-        meaning: "Di origine germanica, significa 'libera' o 'proveniente dalla Francia'.",
-        onomastico: "9 Marzo (Santa Francesca Romana)"
-      },
-      elena: {
-        meaning: "Dal greco Helene, significa 'splendente', 'luminosa come una torcia'.",
-        onomastico: "18 Agosto (Sant'Elena Imperatrice)"
-      }
-    };
-
-    if (dictionary[clean]) {
-      return dictionary[clean];
+    if (namesDatabase[clean]) {
+      return namesDatabase[clean];
     }
 
+    // Fallback elegante per nomi non presenti nel dizionario
     return {
-      meaning: "Un nome affascinante e originale, portatore di grande personalità ed eleganza.",
+      meaning: `Un nome unico, affascinante e originale scelto appositamente per questa splendida avventura.`,
       onomastico: "1 Novembre (Ognissanti)"
     };
   };
@@ -565,7 +524,7 @@ export default function Home() {
               </div>
           )}
 
-          {/* MODALE POPUP PROFILO FACOLTATIVO */}
+          {/* MODALE POPUP PROFILO */}
           {showProfileModal && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in">
@@ -637,7 +596,7 @@ export default function Home() {
               </div>
           )}
 
-          {/* POPUP MATCH / INTESA ISTANTANEO */}
+          {/* POPUP MATCH */}
           {matchPopup && (
               <div className="absolute inset-0 bg-purple-600/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
                 <Sparkles className="w-16 h-16 mb-2 text-yellow-300 animate-bounce" />
