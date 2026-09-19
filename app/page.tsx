@@ -7,8 +7,9 @@ import TinderCard from 'react-tinder-card';
 import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
 
 export default function Home() {
+  const [myVotesList, setMyVotesList] = useState<any[]>([]);
   const [lastVotedItem, setLastVotedItem] = useState<{ nameItem: any; voteId: string } | null>(null);
-  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
+  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità, 5 = Miei Voti
   const [userName, setUserName] = useState('');
   const [isParentRole, setIsParentRole] = useState<'mom' | 'dad' | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -84,6 +85,45 @@ export default function Home() {
       const unvoted = allNames.filter((n) => !votedNameIds.includes(n.id));
       setAllNamesToVote(unvoted);
       setVotedCount(votedNameIds.length);
+    }
+    setLoading(false);
+  };
+
+  // Carica i voti personali dell'utente (Fase 5)
+  const fetchMyVotes = async () => {
+    if (!currentUser) return;
+    setLoading(true);
+
+    const { data, error } = await supabase
+        .from('votes')
+        .select(`
+          id,
+          is_liked,
+          created_at,
+          names (
+            id,
+            name_text
+          )
+        `)
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setMyVotesList(data);
+    }
+    setLoading(false);
+  };
+
+  // Elimina un voto dal registro personale
+  const handleDeleteVote = async (voteId: string) => {
+    setLoading(true);
+    const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('id', voteId);
+
+    if (!error) {
+      setMyVotesList((prev) => prev.filter((v) => v.id !== voteId));
     }
     setLoading(false);
   };
@@ -202,6 +242,7 @@ export default function Home() {
     if (newPhase === 2) fetchAllNamesForVoting();
     if (newPhase === 3) fetchLeaderboard();
     if (newPhase === 4) fetchCoupleMatches();
+    if (newPhase === 5) fetchMyVotes();
   };
 
   // Logica Ibrida: Database Locale + Fallback Intelligente
@@ -411,7 +452,6 @@ export default function Home() {
     const isLiked = direction === 'right';
     if (!currentUser) return;
 
-    // Inseriamo il voto e ci facciamo restituire l'oggetto inserito (con il suo .id)
     const { data: insertedVote, error } = await supabase.from('votes').insert([
       {
         user_id: currentUser.id,
@@ -421,12 +461,10 @@ export default function Home() {
     ]).select().single();
 
     if (!error && insertedVote) {
-      // Memorizziamo l'ultimo voto per permettere l'Annulla
       setLastVotedItem({ nameItem, voteId: insertedVote.id });
     }
 
     if (isLiked) {
-      // ... (tutto il resto della logica dei match rimane identico a prima)
       const { data: otherVotes } = await supabase
           .from('votes')
           .select('*')
@@ -471,18 +509,14 @@ export default function Home() {
     if (!lastVotedItem || !currentUser) return;
     setLoading(true);
 
-    // 1. Eliminiamo il voto da Supabase
     const { error } = await supabase
         .from('votes')
         .delete()
         .eq('id', lastVotedItem.voteId);
 
     if (!error) {
-      // 2. Rimettiamo il nome in cima alla lista dei nomi da votare
       setAllNamesToVote((prev) => [lastVotedItem.nameItem, ...prev]);
-      // 3. Decrementiamo il contatore dei voti fatti
       setVotedCount((prev) => Math.max(0, prev - 1));
-      // 4. Puliamo lo stato dell'ultimo voto
       setLastVotedItem(null);
     }
     setLoading(false);
@@ -684,10 +718,10 @@ export default function Home() {
 
             {/* Navigazione Fasi */}
             {currentUser && (
-                <div className="grid grid-cols-4 bg-purple-50 p-1 rounded-2xl mb-6 border border-purple-100 text-center gap-1">
+                <div className="grid grid-cols-5 bg-purple-50 p-1 rounded-2xl mb-6 border border-purple-100 text-center gap-1">
                   <button
                       onClick={() => handleSwitchPhase(1)}
-                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
+                      className={`py-2 text-[10px] font-bold rounded-xl transition ${
                           phase === 1 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
@@ -695,7 +729,7 @@ export default function Home() {
                   </button>
                   <button
                       onClick={() => handleSwitchPhase(2)}
-                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
+                      className={`py-2 text-[10px] font-bold rounded-xl transition ${
                           phase === 2 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
@@ -703,7 +737,7 @@ export default function Home() {
                   </button>
                   <button
                       onClick={() => handleSwitchPhase(3)}
-                      className={`py-2 text-[11px] font-bold rounded-xl transition ${
+                      className={`py-2 text-[10px] font-bold rounded-xl transition ${
                           phase === 3 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
@@ -711,11 +745,19 @@ export default function Home() {
                   </button>
                   <button
                       onClick={() => handleSwitchPhase(4)}
-                      className={`py-2 text-[11px] font-bold rounded-xl transition flex items-center justify-center gap-0.5 ${
+                      className={`py-2 text-[10px] font-bold rounded-xl transition flex items-center justify-center gap-0.5 ${
                           phase === 4 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
                       }`}
                   >
-                    <Heart className="w-3 h-3 fill-purple-600 text-purple-600" /> Match
+                    <Heart className="w-2.5 h-2.5 fill-purple-600 text-purple-600" /> Match
+                  </button>
+                  <button
+                      onClick={() => handleSwitchPhase(5)}
+                      className={`py-2 text-[10px] font-bold rounded-xl transition ${
+                          phase === 5 ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500'
+                      }`}
+                  >
+                    ❤️ Voti
                   </button>
                 </div>
             )}
@@ -1025,12 +1067,71 @@ export default function Home() {
               </div>
           )}
 
+          {/* FASE 5: REGISTRO VOTI PERSONALI */}
+          {currentUser && phase === 5 && (
+              <div className="space-y-3 my-2 flex-1 flex flex-col justify-start max-h-80 overflow-y-auto pr-1">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                    📝 Il tuo Registro Voti
+                  </h3>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">
+                    Totale: {myVotesList.length}
+                  </span>
+                </div>
+
+                {loading ? (
+                    <p className="text-center text-gray-400 text-xs py-4">Caricamento voti...</p>
+                ) : myVotesList.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-400 text-xs">Non hai ancora espresso alcun voto.</p>
+                      <button
+                          onClick={() => handleSwitchPhase(2)}
+                          className="mt-2 text-xs text-purple-600 font-bold hover:underline"
+                      >
+                        Vai allo Swipe per votare! 👉
+                      </button>
+                    </div>
+                ) : (
+                    <ul className="space-y-2">
+                      {myVotesList.map((vote) => (
+                          <li
+                              key={vote.id}
+                              className="flex items-center justify-between p-2.5 bg-purple-50/50 rounded-xl border border-purple-100 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">
+                                {vote.is_liked ? '💚' : '❌'}
+                              </span>
+                              <div>
+                                <span className="font-bold text-gray-800 text-xs">
+                                  {vote.names?.name_text || "Nome non disponibile"}
+                                </span>
+                                <p className="text-[9px] text-gray-400">
+                                  {vote.is_liked ? 'Mi Piace' : 'Non Mi Piace'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                                onClick={() => handleDeleteVote(vote.id)}
+                                title="Rimuovi voto"
+                                className="text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-2.5 py-1 rounded-lg transition cursor-pointer"
+                            >
+                              Elimina
+                            </button>
+                          </li>
+                      ))}
+                    </ul>
+                )}
+              </div>
+          )}
+
           {/* Footer info */}
           <div className="text-center text-xs text-gray-400 pt-3 border-t border-gray-100">
             {phase === 2 && currentUser && (
                 <span>Voti completati: <strong className="text-purple-600">{votedCount}</strong></span>
             )}
-            {(phase === 1 || phase === 3 || phase === 4) && (
+            {(phase === 1 || phase === 3 || phase === 4 || phase === 5) && (
                 <span>Tocca un nome per scoprire il significato 📖</span>
             )}
           </div>
