@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3 } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap } from 'lucide-react';
 
 export default function Home() {
-  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match
+  const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
   const [userName, setUserName] = useState('');
   const [isParentRole, setIsParentRole] = useState<'mom' | 'dad' | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -24,12 +24,19 @@ export default function Home() {
   const [names, setNames] = useState<any[]>([]);
   const [allNamesToVote, setAllNamesToVote] = useState<any[]>([]);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
+  // Stato Match e Affinità
   const [coupleMatches, setCoupleMatches] = useState<any[]>([]);
+  const [groupMatches, setGroupMatches] = useState<any[]>([]);
+  const [topAffinityUser, setTopAffinityUser] = useState<{ user: any; count: number } | null>(null);
+
   const [expandedNameId, setExpandedNameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [votedCount, setVotedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
-  const [matchPopup, setMatchPopup] = useState<string | null>(null);
+
+  // Pop-up Intesa durante lo Swipe
+  const [matchPopup, setMatchPopup] = useState<{ title: string; subtitle: string; name: string } | null>(null);
 
   const quickAvatarSuggestions = ['👶', '👩', '👨', '👵', '👴', '🎈', '⭐', '🌸', '👑', '🧸', '🚀', '🐱'];
 
@@ -105,36 +112,82 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Carica i Match di Coppia (Fase 4)
+  // Carica Match di Coppia e Intesa di Gruppo (Fase 4)
   const fetchCoupleMatches = async () => {
     setLoading(true);
 
-    const { data: parents } = await supabase
-        .from('users')
-        .select('*')
-        .in('role', ['mom', 'dad']);
+    const { data: allNames } = await supabase.from('names').select('*');
+    const { data: allVotes } = await supabase.from('votes').select('*').eq('is_liked', true);
+    const { data: allUsers } = await supabase.from('users').select('*');
 
-    const mom = parents?.find((p) => p.role === 'mom');
-    const dad = parents?.find((p) => p.role === 'dad');
+    if (!allNames || !allVotes || !allUsers) {
+      setLoading(false);
+      return;
+    }
+
+    const usersMap = new Map(allUsers.map((u) => [u.id, u]));
+
+    // 1. Match Mamma & Papà
+    const mom = allUsers.find((p) => p.role === 'mom');
+    const dad = allUsers.find((p) => p.role === 'dad');
 
     if (mom && dad) {
-      const { data: momVotes } = await supabase.from('votes').select('name_id').eq('user_id', mom.id).eq('is_liked', true);
-      const { data: dadVotes } = await supabase.from('votes').select('name_id').eq('user_id', dad.id).eq('is_liked', true);
-
-      const momLikedIds = momVotes ? momVotes.map((v) => v.name_id) : [];
-      const dadLikedIds = dadVotes ? dadVotes.map((v) => v.name_id) : [];
-
+      const momLikedIds = allVotes.filter((v) => v.user_id === mom.id).map((v) => v.name_id);
+      const dadLikedIds = allVotes.filter((v) => v.user_id === dad.id).map((v) => v.name_id);
       const matchedIds = momLikedIds.filter((id) => dadLikedIds.includes(id));
-
-      if (matchedIds.length > 0) {
-        const { data: matchedNames } = await supabase.from('names').select('*').in('id', matchedIds);
-        setCoupleMatches(matchedNames || []);
-      } else {
-        setCoupleMatches([]);
-      }
+      const matchedNames = allNames.filter((n) => matchedIds.includes(n.id));
+      setCoupleMatches(matchedNames);
     } else {
       setCoupleMatches([]);
     }
+
+    // 2. Nomi con almeno 2 voti positivi nel gruppo
+    const groupScores = allNames.map((n) => {
+      const nameLikes = allVotes.filter((v) => v.name_id === n.id);
+      const voters = nameLikes.map((v) => usersMap.get(v.user_id)).filter(Boolean);
+
+      return {
+        id: n.id,
+        text: n.name_text,
+        likes: nameLikes.length,
+        voters: voters,
+      };
+    }).filter((item) => item.likes >= 2);
+
+    groupScores.sort((a, b) => b.likes - a.likes);
+    setGroupMatches(groupScores);
+
+    // 3. Calcolo Affinità Maggiore per l'utente corrente
+    if (currentUser) {
+      const myLikedNameIds = allVotes.filter((v) => v.user_id === currentUser.id).map((v) => v.name_id);
+
+      const affinityMap = new Map<string, number>();
+      allVotes.forEach((v) => {
+        if (v.user_id !== currentUser.id && myLikedNameIds.includes(v.name_id)) {
+          affinityMap.set(v.user_id, (affinityMap.get(v.user_id) || 0) + 1);
+        }
+      });
+
+      let maxCount = 0;
+      let topUserId: string | null = null;
+
+      affinityMap.forEach((count, userId) => {
+        if (count > maxCount) {
+          maxCount = count;
+          topUserId = userId;
+        }
+      });
+
+      if (topUserId && maxCount > 0) {
+        setTopAffinityUser({
+          user: usersMap.get(topUserId),
+          count: maxCount,
+        });
+      } else {
+        setTopAffinityUser(null);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -331,11 +384,12 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Swipe Tinder
+  // SWIPE TINDER CON MATCH DI GRUPPO
   const handleSwiped = async (direction: any, nameItem: any) => {
     const isLiked = direction === 'right';
     if (!currentUser) return;
 
+    // Salva il voto
     await supabase.from('votes').insert([
       {
         user_id: currentUser.id,
@@ -344,26 +398,42 @@ export default function Home() {
       },
     ]);
 
-    if (isLiked && (currentUser.role === 'mom' || currentUser.role === 'dad')) {
-      const otherRole = currentUser.role === 'mom' ? 'dad' : 'mom';
+    // Se lo Swipe è "Sì", verifica le sintonia con gli altri
+    if (isLiked) {
+      const { data: otherVotes } = await supabase
+          .from('votes')
+          .select('*')
+          .eq('name_id', nameItem.id)
+          .eq('is_liked', true)
+          .neq('user_id', currentUser.id);
 
-      const { data: otherParent } = await supabase
-          .from('users')
-          .select('id')
-          .eq('role', otherRole)
-          .maybeSingle();
-
-      if (otherParent) {
-        const { data: otherVote } = await supabase
-            .from('votes')
+      if (otherVotes && otherVotes.length > 0) {
+        const { data: otherUsers } = await supabase
+            .from('users')
             .select('*')
-            .eq('user_id', otherParent.id)
-            .eq('name_id', nameItem.id)
-            .eq('is_liked', true)
-            .maybeSingle();
+            .in('id', otherVotes.map((v) => v.user_id));
 
-        if (otherVote) {
-          setMatchPopup(nameItem.name_text);
+        if (otherUsers && otherUsers.length > 0) {
+          // Check Match di Coppia Mamma-Papà
+          const partnerRole = currentUser.role === 'mom' ? 'dad' : currentUser.role === 'dad' ? 'mom' : null;
+          const partner = partnerRole ? otherUsers.find((u) => u.role === partnerRole) : null;
+
+          if (partner) {
+            setMatchPopup({
+              title: 'MATCH DI COPPIA! 👩‍❤️‍👨',
+              subtitle: 'Sia la Mamma che il Papà amano questo nome:',
+              name: nameItem.name_text,
+            });
+          } else {
+            // Match / Intesa con altri partecipanti del gruppo
+            const firstOther = otherUsers[0];
+            const badgeText = getRoleBadgeText(firstOther);
+            setMatchPopup({
+              title: 'SUPER INTESA! 🎉',
+              subtitle: `A te e a ${firstOther.name} (${badgeText}) piace:`,
+              name: nameItem.name_text,
+            });
+          }
         }
       }
     }
@@ -376,7 +446,6 @@ export default function Home() {
     setExpandedNameId(expandedNameId === id ? null : id);
   };
 
-  // Helper per mostrare Badge ed Emoji personalizzati per tutti (inclusi Mamma e Papà)
   const getRoleBadgeText = (user: any) => {
     if (!user) return '';
     const avatarEmoji = user.avatar || (user.role === 'mom' ? '👩' : user.role === 'dad' ? '👨' : '👶');
@@ -492,20 +561,20 @@ export default function Home() {
               </div>
           )}
 
-          {/* POPUP MATCH */}
+          {/* POPUP MATCH / INTESA ISTANTANEO */}
           {matchPopup && (
               <div className="absolute inset-0 bg-purple-600/90 backdrop-blur-md rounded-3xl z-50 flex flex-col items-center justify-center text-white p-6 text-center animate-fade-in">
                 <Sparkles className="w-16 h-16 mb-2 text-yellow-300 animate-bounce" />
-                <h2 className="text-3xl font-extrabold mb-1">È UN MATCH! 💕</h2>
-                <p className="text-sm text-purple-100 mb-4">Sia la Mamma che il Papà amano questo nome:</p>
+                <h2 className="text-2xl font-extrabold mb-1">{matchPopup.title}</h2>
+                <p className="text-xs text-purple-100 mb-4">{matchPopup.subtitle}</p>
                 <div className="bg-white text-purple-700 px-6 py-3 rounded-2xl text-2xl font-black shadow-lg mb-6">
-                  {matchPopup}
+                  {matchPopup.name}
                 </div>
                 <button
                     onClick={() => setMatchPopup(null)}
-                    className="bg-yellow-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition shadow-md"
+                    className="bg-yellow-400 text-gray-900 font-bold px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition shadow-md text-sm"
                 >
-                  Fantastico! 🎉
+                  Che bello! 🎉
                 </button>
               </div>
           )}
@@ -887,41 +956,89 @@ export default function Home() {
               </div>
           )}
 
-          {/* FASE 4: MATCH MAMMA & PAPÀ */}
+          {/* FASE 4: MATCH & INTESA DI GRUPPO */}
           {currentUser && phase === 4 && (
-              <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
-                <h3 className="text-center font-bold text-gray-800 text-sm mb-1 flex items-center justify-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-purple-600" /> Match Mamma & Papà 💕
-                </h3>
-                <p className="text-center text-xs text-gray-400 mb-3">
-                  Nomi approvati da entrambi i genitori
-                </p>
+              <div className="space-y-3 my-2 flex-1 flex flex-col justify-start max-h-80 overflow-y-auto pr-1">
 
-                {loading ? (
-                    <p className="text-center text-gray-400 text-sm">Ricerca dei match...</p>
-                ) : coupleMatches.length > 0 ? (
-                    <ul className="space-y-2 max-h-64 overflow-y-auto">
-                      {coupleMatches.map((item) => (
-                          <li
-                              key={item.id}
-                              className="flex items-center justify-between p-3.5 bg-purple-50 rounded-2xl border border-purple-200 shadow-xs"
-                          >
-                            <span className="font-extrabold text-purple-800 text-base">{item.name_text}</span>
-                            <span className="text-xs bg-purple-600 text-white px-2.5 py-1 rounded-xl font-bold flex items-center gap-1">
-                      👩‍❤️‍👨 Intesa Perfetta
-                    </span>
-                          </li>
-                      ))}
-                    </ul>
-                ) : (
-                    <div className="text-center py-6 bg-purple-50/30 rounded-2xl border border-dashed border-purple-200 p-4">
-                      <Heart className="w-8 h-8 text-purple-300 mx-auto mb-2" />
-                      <p className="text-xs font-semibold text-gray-600">Nessun Match di coppia ancora!</p>
-                      <p className="text-[11px] text-gray-400 mt-1">
-                        Mamma e Papà devono registrarsi con i rispettivi ruoli ed effettuare lo Swipe!
-                      </p>
+                {/* AFFINITÀ MAGGIORE DELL'UTENTE */}
+                {topAffinityUser && (
+                    <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 shadow-2xs flex items-center gap-3">
+                      <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+                        <Zap className="w-5 h-5 fill-amber-500" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-amber-900">La tua Sintonia Maggiore 💕</h4>
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          Hai i gusti più simili a <strong className="text-amber-900">{topAffinityUser.user.name}</strong> ({topAffinityUser.count} nomi in comune)!
+                        </p>
+                      </div>
                     </div>
                 )}
+
+                {/* SEZIONE 1: MATCH DI COPPIA (MAMMA & PAPÀ) */}
+                <div>
+                  <h3 className="font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Match Mamma & Papà
+                  </h3>
+                  {coupleMatches.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {coupleMatches.map((item) => (
+                            <li
+                                key={item.id}
+                                className="flex items-center justify-between p-2.5 bg-purple-50 rounded-xl border border-purple-200"
+                            >
+                              <span className="font-extrabold text-purple-900 text-sm">{item.name_text}</span>
+                              <span className="text-[10px] bg-purple-600 text-white px-2 py-0.5 rounded-lg font-bold">
+                        👩‍❤️‍👨 Intesa Perfetta
+                      </span>
+                            </li>
+                        ))}
+                      </ul>
+                  ) : (
+                      <p className="text-[11px] text-gray-400 italic bg-gray-50 p-2 rounded-xl border border-gray-100">
+                        Nessun Match diretto Mamma-Papà al momento.
+                      </p>
+                  )}
+                </div>
+
+                {/* SEZIONE 2: NOMI PIÙ AMATI NEL GRUPPO */}
+                <div>
+                  <h3 className="font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" /> Nomi più Condivisi dal Gruppo
+                  </h3>
+                  {groupMatches.length > 0 ? (
+                      <ul className="space-y-2">
+                        {groupMatches.map((item) => (
+                            <li
+                                key={item.id}
+                                className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-gray-800 text-sm">{item.text}</span>
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                          {item.likes} Approvazioni
+                        </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {item.voters.map((voter: any) => (
+                                    <span
+                                        key={voter.id}
+                                        className="bg-white border text-gray-600 text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+                                    >
+                            {voter.name} ({getRoleBadgeText(voter)})
+                          </span>
+                                ))}
+                              </div>
+                            </li>
+                        ))}
+                      </ul>
+                  ) : (
+                      <p className="text-[11px] text-gray-400 italic bg-gray-50 p-2 rounded-xl border border-gray-100">
+                        Continuate a fare Swipe per trovare le prime intese!
+                      </p>
+                  )}
+                </div>
+
               </div>
           )}
 
