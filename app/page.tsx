@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import TinderCard from 'react-tinder-card';
-import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap, BookOpen, Smile } from 'lucide-react';
+import { Heart, Plus, Trash2, ArrowRight, CheckCircle, HeartHandshake, Sparkles, Award, LogOut, AlertCircle, ChevronDown, ChevronUp, Users, X, Edit3, Zap, BookOpen } from 'lucide-react';
 
 export default function Home() {
   const [phase, setPhase] = useState(1); // 1 = Nomi, 2 = Swipe, 3 = Classifica, 4 = Match & Affinità
@@ -20,7 +20,7 @@ export default function Home() {
   const [profileNote, setProfileNote] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('👶');
 
-  // Modale Dettaglio Nome (Significato & Nickname)
+  // Modale Dettaglio Nome (Significato & Onomastico)
   const [selectedNameDetail, setSelectedNameDetail] = useState<any>(null);
 
   const [currentInput, setCurrentInput] = useState('');
@@ -202,53 +202,52 @@ export default function Home() {
     if (newPhase === 4) fetchCoupleMatches();
   };
 
-  // Generatore Automatico di Significato e Soprannomi
-  const getsmartNameDetails = (nameText: string) => {
-    if (!nameText) return { meaning: "Un nome speciale pieno di dolcezza.", onomastico: "1 Novembre (Ognissanti)", nicknames: [] };
+  // Dizionario pulito con Significato e Onomastico
+  const getSmartNameDetails = (nameText: string) => {
+    if (!nameText) return { meaning: "Un nome speciale pieno di dolcezza.", onomastico: "1 Novembre (Ognissanti)" };
 
     const clean = nameText.trim().toLowerCase();
 
-    // Database di esempio /euristica intelligente
-    const dictionary: Record<string, { meaning: string; onomastico: string; nicknames: string[] }> = {
+    const dictionary: Record<string, { meaning: string; onomastico: string }> = {
       sofia: {
         meaning: "Dal greco Sophia, significa 'Sapienza', 'Saggezza'. Simbolo di intelligenza e grazia.",
-        onomastico: "30 Settembre (Santa Sofia)",
-        nicknames: ["Sofi", "Sofi-pop", "Sosò", "Fia"]
+        onomastico: "30 Settembre (Santa Sofia)"
       },
       aurora: {
         meaning: "Dal latino aurora, 'luminosa come l'alba'. Rappresenta un nuovo inizio e la luce del mattino.",
-        onomastico: "4 Ottobre (Santa Aurora)",
-        nicknames: ["Aury", "Rori", "Lulu"]
+        onomastico: "4 Ottobre (Santa Aurora)"
       },
       giulia: {
         meaning: "Di origine latina, significa 'consacrata a Giove' o 'giovanile, piena di vita'.",
-        onomastico: "12 Aprile / 22 Maggio",
-        nicknames: ["Giulietta", "Giugiù", "Jules"]
+        onomastico: "12 Aprile / 22 Maggio"
       },
       emma: {
         meaning: "Di origine germanica, significa 'universale', 'grande', 'protettrice'.",
-        onomastico: "19 Aprile (Santa Emma)",
-        nicknames: ["Emmolina", "Mimi", "Emmy"]
+        onomastico: "19 Aprile (Santa Emma)"
       },
       alice: {
         meaning: "Dal germanico Adalhaid, significa 'di nobile stirpe' o 'creatura splendida'.",
-        onomastico: "16 Giugno (Sant'Alice)",
-        nicknames: ["Alcina", "Lali", "Ali"]
+        onomastico: "16 Giugno (Sant'Alice)"
       },
       giorgia: {
         meaning: "Deriva dal greco Georgos, colui che lavora la terra, 'agricoltrice'. Forte e determinata.",
-        onomastico: "23 Aprile (San Giorgio)",
-        nicknames: ["Giò", "Gigi", "Gioia"]
+        onomastico: "23 Aprile (San Giorgio)"
       },
       martina: {
         meaning: "Legato al dio Marte, significa 'consacrata a Marte', simbolo di forza e coraggio.",
-        onomastico: "30 Gennaio (Santa Martina)",
-        nicknames: ["Marti", "Tina", "Marghina"]
+        onomastico: "30 Gennaio (Santa Martina)"
       },
-      BEATRICE: {
+      beatrice: {
         meaning: "Dal latino Beatrix, 'colei che rende felici' o 'portatrice di beatitudine'.",
-        onomastico: "18 Gennaio (Santa Beatrice)",
-        nicknames: ["Bea", "Trixie", "Tris"]
+        onomastico: "18 Gennaio (Santa Beatrice)"
+      },
+      francesca: {
+        meaning: "Di origine germanica, significa 'libera' o 'proveniente dalla Francia'.",
+        onomastico: "9 Marzo (Santa Francesca Romana)"
+      },
+      elena: {
+        meaning: "Dal greco Helene, significa 'splendente', 'luminosa come una torcia'.",
+        onomastico: "18 Agosto (Sant'Elena Imperatrice)"
       }
     };
 
@@ -256,14 +255,9 @@ export default function Home() {
       return dictionary[clean];
     }
 
-    // Fallback generico intelligente basato sulla prima/ultima lettera
-    const firstLetter = nameText.charAt(0).toUpperCase();
-    const shortNick = nameText.length > 4 ? nameText.substring(0, 4) : nameText;
-
     return {
-      meaning: `Un nome affascinante che inizia con la lettera ${firstLetter}, portatore di eleganza e personalità unica.`,
-      onomastico: "1 Novembre (Ognissanti)",
-      nicknames: [`${shortNick}i`, `${nameText}-pop`, `Ciccio-${nameText}`]
+      meaning: "Un nome affascinante e originale, portatore di grande personalità ed eleganza.",
+      onomastico: "1 Novembre (Ognissanti)"
     };
   };
 
@@ -521,7 +515,7 @@ export default function Home() {
       <main className="min-h-screen bg-gradient-to-b from-purple-100 via-purple-50 to-indigo-50 flex flex-col items-center justify-center p-4 select-none">
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-purple-100 relative min-h-[540px] flex flex-col justify-between">
 
-          {/* MODALE SIGNIFICATO & NICKNAME */}
+          {/* MODALE SIGNIFICATO & ONOMASTICO */}
           {selectedNameDetail && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-xs rounded-3xl z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl p-6 w-full shadow-2xl space-y-4 border border-purple-100 relative animate-fade-in max-h-[90%] overflow-y-auto">
@@ -547,7 +541,7 @@ export default function Home() {
                       <BookOpen className="w-4 h-4 text-purple-600" /> Significato Originale
                     </div>
                     <p className="text-xs text-gray-700 leading-relaxed">
-                      {getsmartNameDetails(selectedNameDetail.text).meaning}
+                      {getSmartNameDetails(selectedNameDetail.text).meaning}
                     </p>
                   </div>
 
@@ -557,25 +551,8 @@ export default function Home() {
                       <Sparkles className="w-4 h-4 text-indigo-600" /> Onomastico
                     </div>
                     <p className="text-xs text-gray-700 font-medium">
-                      {getsmartNameDetails(selectedNameDetail.text).onomastico}
+                      {getSmartNameDetails(selectedNameDetail.text).onomastico}
                     </p>
-                  </div>
-
-                  {/* SOPRANNOMI & DIMINUTIVI */}
-                  <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                      <Smile className="w-4 h-4 text-amber-600" /> Soprannomi & Diminutivi Consigliati 🐻
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {getsmartNameDetails(selectedNameDetail.text).nicknames.map((nick, idx) => (
-                          <span
-                              key={idx}
-                              className="bg-white px-2.5 py-1 rounded-lg border border-amber-200 text-xs font-semibold text-amber-800 shadow-2xs"
-                          >
-                      ✨ {nick}
-                    </span>
-                      ))}
-                    </div>
                   </div>
 
                   <button
@@ -832,7 +809,7 @@ export default function Home() {
               </div>
           )}
 
-          {/* FASE 1: INSERIMENTO NOMI (Con click per vedere significato) */}
+          {/* FASE 1: INSERIMENTO NOMI */}
           {currentUser && phase === 1 && (
               <div className="space-y-4 my-auto">
                 {names.length < 10 ? (
@@ -870,7 +847,7 @@ export default function Home() {
                 )}
 
                 <div className="flex justify-between items-center text-xs text-gray-500">
-                  <span>I tuoi nomi (Tocca per significato 📖):</span>
+                  <span>I tuoi nomi (Tocca per il significato 📖):</span>
                   <span className="font-bold text-purple-700">{names.length} / 10</span>
                 </div>
 
@@ -945,14 +922,14 @@ export default function Home() {
               </div>
           )}
 
-          {/* FASE 3: CLASSIFICA (Con tap per info) */}
+          {/* FASE 3: CLASSIFICA */}
           {currentUser && phase === 3 && (
               <div className="space-y-3 my-2 flex-1 flex flex-col justify-center">
                 <h3 className="text-center font-bold text-gray-700 text-sm mb-1 flex items-center justify-center gap-1.5">
                   <Award className="w-4 h-4 text-amber-500" /> Classifica Generale
                 </h3>
                 <p className="text-center text-[11px] text-gray-400 mb-2">
-                  Tocca il nome per significato e nickname 📖 | Freccia per votanti 👇
+                  Tocca il nome per il significato 📖
                 </p>
 
                 {loading ? (
@@ -1045,7 +1022,7 @@ export default function Home() {
                 <span>Voti completati: <strong className="text-purple-600">{votedCount}</strong></span>
             )}
             {(phase === 1 || phase === 3 || phase === 4) && (
-                <span>Tocca un nome per scoprire significato e nickname 📖</span>
+                <span>Tocca un nome per scoprire il significato 📖</span>
             )}
           </div>
 
