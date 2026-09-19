@@ -397,7 +397,7 @@ export default function Home() {
                     </label>
                     <input
                         type="text"
-                        placeholder="Es. Zia preferita, Amica d'infanzia, Nonna..."
+                        placeholder="Es. Zia, Amico, Nonna..."
                         value={profileNote}
                         onChange={(e) => setProfileNote(e.target.value)}
                         className="w-full px-3 py-2 text-sm border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-300 focus:outline-none"
