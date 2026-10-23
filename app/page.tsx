@@ -161,6 +161,7 @@ export default function Home() {
           text: n.name_text,
           likes: nameLikes.length,
           voters: voters,
+          creator: creator,
         };
       });
 
@@ -1043,13 +1044,22 @@ export default function Home() {
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <span className="font-extrabold text-xs text-gray-400 w-4">{index + 1}.</span>
-                                  <button
-                                      onClick={() => setSelectedNameDetail({ text: item.text })}
-                                      className="font-bold text-gray-800 text-sm hover:text-purple-600 transition flex items-center gap-1.5 text-left"
-                                  >
-                                    <span>{item.text}</span>
-                                    <BookOpen className="w-3 h-3 text-purple-400" />
-                                  </button>
+                                  <div>
+                                    <button
+                                        onClick={() => setSelectedNameDetail({ text: item.text })}
+                                        className="font-bold text-gray-800 text-sm hover:text-purple-600 transition flex items-center gap-1.5 text-left"
+                                    >
+                                      <span>{item.text}</span>
+                                      <BookOpen className="w-3 h-3 text-purple-400" />
+                                    </button>
+
+                                    {/* Etichetta di chi ha proposto il nome */}
+                                    {item.creator && (
+                                        <span className="text-[10px] text-gray-400 block font-normal mt-0.5">
+                                          Proposto da {item.creator.avatar || '👶'} {item.creator.name}
+                                        </span>
+                                    )}
+                                  </div>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -1075,7 +1085,7 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              {/* Elenco dei votanti a scomparsa (si apre solo se clicchi sul contatore dei like) */}
+                              {/* Elenco dei votanti a scomparsa */}
                               {isExpanded && item.voters && item.voters.length > 0 && (
                                   <div className="mt-2.5 pt-2 border-t border-purple-100/80 flex flex-wrap gap-1.5 items-center animate-fade-in">
                                     <span className="text-[10px] text-gray-400 font-medium">A chi piace:</span>
