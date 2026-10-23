@@ -155,6 +155,7 @@ export default function Home() {
       const scores = allNames.map((n) => {
         const nameLikes = allVotes.filter((v) => v.name_id === n.id);
         const voters = nameLikes.map((v) => usersMap.get(v.user_id)).filter(Boolean);
+        const creator = usersMap.get(n.user_id);
 
         return {
           id: n.id,
