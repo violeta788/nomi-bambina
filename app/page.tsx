@@ -1053,7 +1053,7 @@ export default function Home() {
                                       <BookOpen className="w-3 h-3 text-purple-400" />
                                     </button>
 
-                                    {/* Etichetta di chi ha proposto il nome */}
+                                    {/* NOTA: Usiamo item.creator e non creator! */}
                                     {item.creator && (
                                         <span className="text-[10px] text-gray-400 block font-normal mt-0.5">
                                           Proposto da {item.creator.avatar || '👶'} {item.creator.name}
