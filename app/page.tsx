@@ -94,9 +94,18 @@ export default function Home() {
 
     const votedNameIds = myVotes ? myVotes.map((v) => v.name_id) : [];
     const { data: allNames } = await supabase.from('names').select('*');
+    const { data: allUsers } = await supabase.from('users').select('*');
 
-    if (allNames) {
-      const unvoted = allNames.filter((n) => !votedNameIds.includes(n.id));
+    if (allNames && allUsers) {
+      // 1. Creiamo la mappa degli utenti (mancava questo pezzo!)
+      const usersMap = new Map(allUsers.map((u) => [u.id, u]));
+
+      const unvoted = allNames
+          .filter((n) => !votedNameIds.includes(n.id))
+          .map((n) => ({
+            ...n,
+            creator: usersMap.get(n.user_id) || null, // Ora usersMap esiste ed è pronta
+          }));
       setAllNamesToVote(unvoted);
       setVotedCount(votedNameIds.length);
     }
@@ -976,6 +985,12 @@ export default function Home() {
                               <h2 className="text-3xl font-extrabold tracking-wide drop-shadow-md">
                                 {item.name_text}
                               </h2>
+
+                              {item.creator && (
+                                  <span className="text-xs bg-white/20 px-3 py-1 rounded-full text-purple-100 font-medium mt-2 backdrop-blur-xs">
+                                    Proposto da {item.creator.avatar || '👶'} {item.creator.name}
+                                  </span>
+                              )}
 
                               {/* TESTI DINAMICI IN BASE ALL'INVERSIONE */}
                               <div className="flex gap-8 mt-6 text-xs text-purple-100 font-medium">
